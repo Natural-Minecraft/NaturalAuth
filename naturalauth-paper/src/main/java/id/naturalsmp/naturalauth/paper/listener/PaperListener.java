@@ -84,6 +84,23 @@ public class PaperListener implements Listener, PluginMessageListener {
                         target.sendMessage("§c§lNaturalAuth §r§c" + msg);
                         // Update prompt so the reopened GUI displays the error
                         activePrompt.put(uuid, msg);
+
+                        if (id.naturalsmp.naturalauth.paper.gui.DialogRenderer.isDialogApiAvailable()) {
+                            String type = activeGuiType.get(uuid);
+                            if (type != null) {
+                                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                                    if (target.isOnline()) {
+                                        id.naturalsmp.naturalauth.paper.gui.DialogRenderer.openErrorDialog(
+                                                plugin,
+                                                target,
+                                                type.equalsIgnoreCase("REGISTER") ? "Registrasi Gagal" : "Login Gagal",
+                                                msg,
+                                                () -> id.naturalsmp.naturalauth.paper.gui.DialogRenderer.openDialogGUI(plugin, target, type, msg)
+                                        );
+                                    }
+                                }, 5L);
+                            }
+                        }
                     }
                 }
             } else if (packetId == AuthBridgeProtocol.PACKET_OPEN_RULES) {

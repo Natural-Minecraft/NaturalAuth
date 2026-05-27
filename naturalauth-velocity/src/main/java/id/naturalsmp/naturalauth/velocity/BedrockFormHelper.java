@@ -33,20 +33,17 @@ public class BedrockFormHelper implements BedrockAuthProvider {
                         String confirm = response.getInput(1);
                         
                         if (password == null || password.isEmpty() || confirm == null || confirm.isEmpty()) {
-                            player.sendMessage(Component.text("§cPassword tidak boleh kosong!"));
-                            reopenAuthFormDelayed(player, false);
+                            openBedrockErrorForm(player, "Registrasi Gagal", "Password tidak boleh kosong!", () -> openAuthForm(player, false));
                             return;
                         }
                         
                         if (password.length() < 4) {
-                            player.sendMessage(Component.text("§cPassword minimal 4 karakter!"));
-                            reopenAuthFormDelayed(player, false);
+                            openBedrockErrorForm(player, "Registrasi Gagal", "Password minimal 4 karakter!", () -> openAuthForm(player, false));
                             return;
                         }
                         
                         if (!password.equals(confirm)) {
-                            player.sendMessage(Component.text("§cKonfirmasi password tidak cocok!"));
-                            reopenAuthFormDelayed(player, false);
+                            openBedrockErrorForm(player, "Registrasi Gagal", "Konfirmasi password tidak cocok!", () -> openAuthForm(player, false));
                             return;
                         }
                         
@@ -55,8 +52,7 @@ public class BedrockFormHelper implements BedrockAuthProvider {
                             player.sendMessage(Component.text("§aRegistrasi berhasil!"));
                             listener.handlePasswordVerified(player);
                         } else {
-                            player.sendMessage(Component.text("§cRegistrasi gagal! Silakan coba lagi."));
-                            reopenAuthFormDelayed(player, false);
+                            openBedrockErrorForm(player, "Registrasi Gagal", "Registrasi gagal! Silakan coba lagi.", () -> openAuthForm(player, false));
                         }
                     })
                     .closedResultHandler(() -> reopenAuthFormDelayed(player, false))
@@ -66,12 +62,25 @@ public class BedrockFormHelper implements BedrockAuthProvider {
         } else {
             CustomForm form = CustomForm.builder()
                     .title("Welcome Back! \u26A0")
-                    .input("Please enter your password to continue.\n\n§7If you forgot your password, contact staff.\n\n§fPassword:", "Enter your password...")
+                    .input("Please enter your password to continue.\n\n§7If you forgot your password, toggle below.\n\n§fPassword:", "Enter your password...")
+                    .toggle("§eSaya Lupa Password (Buka Link Reset)", false)
                     .validResultHandler(response -> {
+                        boolean forgot = response.getToggle(1);
+                        if (forgot) {
+                            player.sendMessage(Component.text("§8§m──────────────────────────────────"));
+                            player.sendMessage(Component.text("§e§lNaturalSMP §r§eSilakan klik link di bawah untuk memulihkan password Anda:"));
+                            player.sendMessage(Component.text("§b§nhttps://naturalsmp.net/support/help/lupa-password")
+                                    .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl("https://naturalsmp.net/support/help/lupa-password"))
+                                    .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(Component.text("§7Klik untuk membuka website"))));
+                            player.sendMessage(Component.text("§8§m──────────────────────────────────"));
+                            
+                            reopenAuthFormDelayed(player, true);
+                            return;
+                        }
+
                         String password = response.getInput(0);
                         if (password == null || password.isEmpty()) {
-                            player.sendMessage(Component.text("§cPassword tidak boleh kosong!"));
-                            reopenAuthFormDelayed(player, true);
+                            openBedrockErrorForm(player, "Login Gagal", "Password tidak boleh kosong!", () -> openAuthForm(player, true));
                             return;
                         }
                         
@@ -79,8 +88,7 @@ public class BedrockFormHelper implements BedrockAuthProvider {
                             player.sendMessage(Component.text("§aLogin berhasil!"));
                             listener.handlePasswordVerified(player);
                         } else {
-                            player.sendMessage(Component.text("§cPassword salah!"));
-                            reopenAuthFormDelayed(player, true);
+                            openBedrockErrorForm(player, "Login Gagal", "Password salah!", () -> openAuthForm(player, true));
                         }
                     })
                     .closedResultHandler(() -> reopenAuthFormDelayed(player, true))
@@ -88,6 +96,29 @@ public class BedrockFormHelper implements BedrockAuthProvider {
 
             sendForm(uuid, form);
         }
+    }
+
+    private void openBedrockErrorForm(Player player, String title, String errorMsg, Runnable onClose) {
+        org.geysermc.cumulus.form.SimpleForm form = org.geysermc.cumulus.form.SimpleForm.builder()
+                .title(title)
+                .content("§c§l✖ GERBANG AUTENTIKASI ✖\n\n§7Terjadi kesalahan:\n§e" + errorMsg + "\n\n§7Silakan tekan tombol di bawah untuk mencoba kembali.")
+                .button("Coba Lagi")
+                .validResultHandler(response -> {
+                    plugin.getServer().getScheduler().buildTask(plugin, () -> {
+                        if (player.isActive()) {
+                            onClose.run();
+                        }
+                    }).delay(500, TimeUnit.MILLISECONDS).schedule();
+                })
+                .closedResultHandler(() -> {
+                    plugin.getServer().getScheduler().buildTask(plugin, () -> {
+                        if (player.isActive()) {
+                            onClose.run();
+                        }
+                    }).delay(500, TimeUnit.MILLISECONDS).schedule();
+                })
+                .build();
+        sendForm(player.getUniqueId(), form);
     }
 
     @Override

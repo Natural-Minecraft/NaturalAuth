@@ -58,18 +58,34 @@ public class DialogRenderer {
                 .action(DialogAction.customClick((response, audience) -> {
                     String password = response.getText("password");
                     if (password == null || password.trim().isEmpty()) {
-                        player.sendMessage("§c§lNaturalAuth §r§cPassword tidak boleh kosong!");
                         audience.closeDialog();
-                        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                            if (player.isOnline()) {
-                                openLoginDialog(plugin, player, "§cPassword tidak boleh kosong!");
-                            }
-                        }, 5L);
+                        openErrorDialog(plugin, player, "Login Gagal", "Password tidak boleh kosong!", () -> {
+                            openLoginDialog(plugin, player, prompt);
+                        });
                         return;
                     }
 
                     audience.closeDialog();
                     submitPasswordToVelocity(plugin, player, password);
+                }, ClickCallback.Options.builder().build()))
+                .build();
+
+        ActionButton forgotPasswordButton = ActionButton.builder(Component.text("Lupa Password"))
+                .action(DialogAction.customClick((response, audience) -> {
+                    audience.closeDialog();
+                    player.sendMessage(Component.text("§8§m──────────────────────────────────"));
+                    player.sendMessage(Component.text("§e§lNaturalSMP §r§eSilakan klik link di bawah untuk memulihkan password Anda:"));
+                    player.sendMessage(Component.text("§b§nhttps://naturalsmp.net/support/help/lupa-password")
+                            .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl("https://naturalsmp.net/support/help/lupa-password"))
+                            .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(Component.text("§7Klik untuk membuka website"))));
+                    player.sendMessage(Component.text("§8§m──────────────────────────────────"));
+
+                    // Reopen the login dialog in case they want to try logging in again
+                    Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                        if (player.isOnline()) {
+                            openLoginDialog(plugin, player, prompt);
+                        }
+                    }, 100L); // wait 5 seconds so they have time to click the link
                 }, ClickCallback.Options.builder().build()))
                 .build();
 
@@ -81,7 +97,7 @@ public class DialogRenderer {
                         ))
                         .inputs(List.of(passwordInput))
                         .build())
-                .type(DialogType.notice(signInButton))
+                .type(DialogType.confirmation(signInButton, forgotPasswordButton))
         );
 
         player.showDialog(dialog);
@@ -114,24 +130,18 @@ public class DialogRenderer {
                     String confirm = response.getText("confirm");
 
                     if (password == null || password.trim().isEmpty() || password.length() < 4) {
-                        player.sendMessage("§c§lNaturalAuth §r§cPassword minimal 4 karakter!");
                         audience.closeDialog();
-                        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                            if (player.isOnline()) {
-                                openRegisterDialog(plugin, player, "§cPassword minimal 4 karakter!");
-                            }
-                        }, 5L);
+                        openErrorDialog(plugin, player, "Registrasi Gagal", "Password minimal 4 karakter!", () -> {
+                            openRegisterDialog(plugin, player, prompt);
+                        });
                         return;
                     }
 
                     if (confirm == null || !confirm.equals(password)) {
-                        player.sendMessage("§c§lNaturalAuth §r§cKonfirmasi password tidak cocok!");
                         audience.closeDialog();
-                        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                            if (player.isOnline()) {
-                                openRegisterDialog(plugin, player, "§cKonfirmasi password tidak cocok!");
-                            }
-                        }, 5L);
+                        openErrorDialog(plugin, player, "Registrasi Gagal", "Konfirmasi password tidak cocok!", () -> {
+                            openRegisterDialog(plugin, player, prompt);
+                        });
                         return;
                     }
 
@@ -149,6 +159,36 @@ public class DialogRenderer {
                         .inputs(List.of(passwordInput, confirmInput))
                         .build())
                 .type(DialogType.notice(registerButton))
+        );
+
+        player.showDialog(dialog);
+    }
+
+    public static void openErrorDialog(NaturalAuthPaper plugin, Player player, String title, String errorMsg, Runnable onClose) {
+        ActionButton okButton = ActionButton.builder(Component.text("Coba Lagi"))
+                .action(DialogAction.customClick((response, audience) -> {
+                    audience.closeDialog();
+                    Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                        if (player.isOnline()) {
+                            onClose.run();
+                        }
+                    }, 5L);
+                }, ClickCallback.Options.builder().build()))
+                .build();
+
+        Dialog dialog = Dialog.create(builder -> builder.empty()
+                .base(DialogBase.builder(Component.text(title))
+                        .canCloseWithEscape(false)
+                        .body(List.of(
+                                DialogBody.plainMessage(Component.text("§c§l✖ GERBANG AUTENTIKASI ✖")),
+                                DialogBody.plainMessage(Component.text("")),
+                                DialogBody.plainMessage(Component.text("§7Terjadi kesalahan:")),
+                                DialogBody.plainMessage(Component.text("§e" + errorMsg)),
+                                DialogBody.plainMessage(Component.text("")),
+                                DialogBody.plainMessage(Component.text("§7Silakan klik tombol di bawah untuk mengulangi."))
+                        ))
+                        .build())
+                .type(DialogType.notice(okButton))
         );
 
         player.showDialog(dialog);
