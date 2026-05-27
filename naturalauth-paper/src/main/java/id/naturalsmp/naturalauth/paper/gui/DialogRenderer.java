@@ -44,13 +44,14 @@ public class DialogRenderer {
     }
 
     public static void openLoginDialog(NaturalAuthPaper plugin, Player player, String prompt) {
-        TextDialogInput passwordInput = TextDialogInput.text(
+        TextDialogInput passwordInput = DialogInput.text(
                 "password",
                 200,
                 Component.text("Password"),
                 true,
                 "",
-                72
+                72,
+                null
         );
 
         ActionButton signInButton = ActionButton.builder(Component.text("Masuk"))
@@ -87,22 +88,24 @@ public class DialogRenderer {
     }
 
     public static void openRegisterDialog(NaturalAuthPaper plugin, Player player, String prompt) {
-        TextDialogInput passwordInput = TextDialogInput.text(
+        TextDialogInput passwordInput = DialogInput.text(
                 "password",
                 200,
                 Component.text("Password Baru"),
                 true,
                 "",
-                72
+                72,
+                null
         );
 
-        TextDialogInput confirmInput = TextDialogInput.text(
+        TextDialogInput confirmInput = DialogInput.text(
                 "confirm",
                 200,
                 Component.text("Konfirmasi Password"),
                 true,
                 "",
-                72
+                72,
+                null
         );
 
         ActionButton registerButton = ActionButton.builder(Component.text("Daftar"))
