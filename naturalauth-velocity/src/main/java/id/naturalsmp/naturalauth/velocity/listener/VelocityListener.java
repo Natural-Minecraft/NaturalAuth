@@ -37,9 +37,26 @@ public class VelocityListener {
 
         // Check for Auto-Login
         if (plugin.getSessionManager().checkAutoLogin(player.getUniqueId(), ip)) {
-            plugin.getLogger().info("Player " + player.getUsername() + " auto-logged in via saved session.");
-            plugin.setAuthenticated(player.getUniqueId(), true);
-            player.sendMessage(Component.text("§aAuto-login berhasil (Sesi aktif)."));
+            // Check if player needs to accept rules even if session is active
+            if (plugin.isRulesEnabled() && !plugin.getDatabaseManager().hasAcceptedRules(player.getUsername())) {
+                plugin.getLogger().info("Player " + player.getUsername() + " auto-logged in, but needs to accept rules.");
+                plugin.setAuthenticated(player.getUniqueId(), false);
+                plugin.setPendingRules(player.getUniqueId(), true);
+                plugin.getJoinTimes().put(player.getUniqueId(), System.currentTimeMillis());
+                
+                // Rules need to be accepted
+                plugin.getServer().getScheduler().buildTask(plugin, () -> {
+                    if (FloodgateApi.getInstance().isFloodgatePlayer(player.getUniqueId())) {
+                        openBedrockRulesForm(player);
+                    } else {
+                        sendOpenRulesToPaper(player);
+                    }
+                }).delay(1, TimeUnit.SECONDS).schedule();
+            } else {
+                plugin.getLogger().info("Player " + player.getUsername() + " auto-logged in via saved session.");
+                plugin.setAuthenticated(player.getUniqueId(), true);
+                player.sendMessage(Component.text("§aAuto-login berhasil (Sesi aktif)."));
+            }
         } else {
             plugin.setAuthenticated(player.getUniqueId(), false);
             plugin.getJoinTimes().put(player.getUniqueId(), System.currentTimeMillis());
@@ -74,6 +91,7 @@ public class VelocityListener {
     public void onDisconnect(DisconnectEvent event) {
         Player player = event.getPlayer();
         plugin.setAuthenticated(player.getUniqueId(), false);
+        plugin.setPendingRules(player.getUniqueId(), false);
         plugin.getJoinTimes().remove(player.getUniqueId());
     }
 
@@ -82,7 +100,11 @@ public class VelocityListener {
         Player player = event.getPlayer();
         if (!plugin.isAuthenticated(player.getUniqueId())) {
             event.setResult(PlayerChatEvent.ChatResult.denied());
-            player.sendMessage(Component.text("§cAnda harus login terlebih dahulu!"));
+            if (plugin.isPendingRules(player.getUniqueId())) {
+                player.sendMessage(Component.text("§cAnda harus menyetujui peraturan server terlebih dahulu!"));
+            } else {
+                player.sendMessage(Component.text("§cAnda harus login terlebih dahulu!"));
+            }
         }
     }
 
@@ -91,7 +113,11 @@ public class VelocityListener {
         if (event.getSource() instanceof Player player) {
             if (!plugin.isAuthenticated(player.getUniqueId())) {
                 event.setResult(CommandExecuteEvent.CommandResult.denied());
-                player.sendMessage(Component.text("§cAnda harus login terlebih dahulu!"));
+                if (plugin.isPendingRules(player.getUniqueId())) {
+                    player.sendMessage(Component.text("§cAnda harus menyetujui peraturan server terlebih dahulu!"));
+                } else {
+                    player.sendMessage(Component.text("§cAnda harus login terlebih dahulu!"));
+                }
             }
         }
     }
@@ -112,7 +138,14 @@ public class VelocityListener {
                 UUID uuid = UUID.fromString(dis.readUTF());
                 plugin.getServer().getPlayer(uuid).ifPresent(player -> {
                     if (!plugin.isAuthenticated(uuid)) {
-                        startAuthFlow(player);
+                        if (plugin.isPendingRules(uuid)) {
+                            // Re-open rules screen if they are pending rules
+                            if (!FloodgateApi.getInstance().isFloodgatePlayer(uuid)) {
+                                sendOpenRulesToPaper(player);
+                            }
+                        } else {
+                            startAuthFlow(player);
+                        }
                     }
                 });
             } else if (packetId == AuthBridgeProtocol.PACKET_SUBMIT_PASSWORD) {
@@ -121,6 +154,23 @@ public class VelocityListener {
                 plugin.getServer().getPlayer(uuid).ifPresent(player -> {
                     if (!plugin.isAuthenticated(uuid)) {
                         handlePasswordSubmission(player, password);
+                    }
+                });
+            } else if (packetId == AuthBridgeProtocol.PACKET_RULES_ACCEPTED) {
+                UUID uuid = UUID.fromString(dis.readUTF());
+                plugin.getServer().getPlayer(uuid).ifPresent(player -> {
+                    if (plugin.isPendingRules(uuid)) {
+                        plugin.getDatabaseManager().setRulesAccepted(uuid);
+                        player.sendMessage(Component.text("§aAnda telah menyetujui peraturan server!"));
+                        finalizeAuth(player);
+                    }
+                });
+            } else if (packetId == AuthBridgeProtocol.PACKET_RULES_DECLINED) {
+                UUID uuid = UUID.fromString(dis.readUTF());
+                plugin.getServer().getPlayer(uuid).ifPresent(player -> {
+                    if (plugin.isPendingRules(uuid)) {
+                        plugin.setPendingRules(uuid, false);
+                        player.disconnect(Component.text("§cAnda harus menyetujui peraturan untuk bermain!"));
                     }
                 });
             }
@@ -157,8 +207,8 @@ public class VelocityListener {
             
             boolean success = plugin.register(uuid, player.getUsername(), password);
             if (success) {
-                player.sendMessage(Component.text("§aRegistrasi berhasil! Anda otomatis masuk."));
-                handleSuccessfulAuth(player);
+                player.sendMessage(Component.text("§aRegistrasi berhasil!"));
+                handlePasswordVerified(player);
             } else {
                 sendAuthStatusToPaper(player, false, "Registrasi gagal, coba lagi!");
             }
@@ -166,23 +216,42 @@ public class VelocityListener {
             // Logging in
             if (plugin.verifyPassword(player.getUsername(), password)) {
                 player.sendMessage(Component.text("§aLogin berhasil!"));
-                handleSuccessfulAuth(player);
+                handlePasswordVerified(player);
             } else {
                 sendAuthStatusToPaper(player, false, "Password salah!");
             }
         }
     }
 
-    private void handleSuccessfulAuth(Player player) {
+    private void handlePasswordVerified(Player player) {
+        UUID uuid = player.getUniqueId();
+        if (plugin.isRulesEnabled() && !plugin.getDatabaseManager().hasAcceptedRules(player.getUsername())) {
+            plugin.setPendingRules(uuid, true);
+            
+            // Tell Paper auth was successful to close the Login/Register Anvil GUI
+            sendAuthStatusToPaper(player, true, "Success");
+            
+            if (FloodgateApi.getInstance().isFloodgatePlayer(uuid)) {
+                openBedrockRulesForm(player);
+            } else {
+                sendOpenRulesToPaper(player);
+            }
+        } else {
+            finalizeAuth(player);
+        }
+    }
+
+    private void finalizeAuth(Player player) {
         UUID uuid = player.getUniqueId();
         String ip = player.getRemoteAddress().getAddress().getHostAddress();
 
+        plugin.setPendingRules(uuid, false);
         plugin.setAuthenticated(uuid, true);
         
         // Save Session
         plugin.getSessionManager().createSession(uuid, ip);
 
-        // Tell Paper auth was successful (closes GUI)
+        // Tell Paper auth was successful (closes GUI if any)
         sendAuthStatusToPaper(player, true, "Success");
 
         // Redirect to success-target server
@@ -201,9 +270,9 @@ public class VelocityListener {
         
         if (!registered) {
             CustomForm form = CustomForm.builder()
-                    .title("Registrasi Akun")
-                    .input("Masukkan Password Baru (Min 4 Karakter):", "Password")
-                    .input("Konfirmasi Password Baru:", "Konfirmasi Password")
+                    .title("Create Account \u26A0")
+                    .input("Welcome! Create a secure password below.\n\n§7Your password protects your progress.\n\n§fPassword:", "Min. 4 characters...")
+                    .input("Confirm Password:", "Repeat password...")
                     .validResultHandler(response -> {
                         String password = response.getInput(0);
                         String confirm = response.getInput(1);
@@ -228,8 +297,8 @@ public class VelocityListener {
                         
                         boolean success = plugin.register(uuid, player.getUsername(), password);
                         if (success) {
-                            player.sendMessage(Component.text("§aRegistrasi berhasil! Anda telah masuk."));
-                            handleSuccessfulAuth(player);
+                            player.sendMessage(Component.text("§aRegistrasi berhasil!"));
+                            handlePasswordVerified(player);
                         } else {
                             player.sendMessage(Component.text("§cRegistrasi gagal! Silakan coba lagi."));
                             reopenBedrockFormDelayed(player, false);
@@ -241,8 +310,8 @@ public class VelocityListener {
             FloodgateApi.getInstance().sendForm(uuid, form);
         } else {
             CustomForm form = CustomForm.builder()
-                    .title("Login Akun")
-                    .input("Masukkan Password Anda:", "Password")
+                    .title("Welcome Back! \u26A0")
+                    .input("Please enter your password to continue.\n\n§7If you forgot your password, contact staff.\n\n§fPassword:", "Enter your password...")
                     .validResultHandler(response -> {
                         String password = response.getInput(0);
                         if (password == null || password.isEmpty()) {
@@ -253,7 +322,7 @@ public class VelocityListener {
                         
                         if (plugin.verifyPassword(player.getUsername(), password)) {
                             player.sendMessage(Component.text("§aLogin berhasil!"));
-                            handleSuccessfulAuth(player);
+                            handlePasswordVerified(player);
                         } else {
                             player.sendMessage(Component.text("§cPassword salah!"));
                             reopenBedrockFormDelayed(player, true);
@@ -266,10 +335,50 @@ public class VelocityListener {
         }
     }
 
+    private void openBedrockRulesForm(Player player) {
+        UUID uuid = player.getUniqueId();
+        
+        // Build the rules text
+        StringBuilder rulesContent = new StringBuilder("§e" + plugin.getRulesContent() + "\n\n");
+        for (String rule : plugin.getRulesList()) {
+            rulesContent.append("§f").append(rule).append("\n");
+        }
+        rulesContent.append("\n§7").append(plugin.getRulesToggleLabel()).append(".");
+        
+        CustomForm form = CustomForm.builder()
+                .title(plugin.getRulesTitle())
+                .label(rulesContent.toString())
+                .toggle(plugin.getRulesToggleLabel(), false)
+                .validResultHandler(response -> {
+                    boolean accepted = response.getToggle(1);
+                    if (!accepted) {
+                        player.sendMessage(Component.text("§cAnda harus menyetujui peraturan untuk bermain!"));
+                        reopenBedrockRulesFormDelayed(player);
+                        return;
+                    }
+                    
+                    plugin.getDatabaseManager().setRulesAccepted(uuid);
+                    player.sendMessage(Component.text("§aAnda telah menyetujui peraturan server!"));
+                    finalizeAuth(player);
+                })
+                .closedResultHandler(() -> reopenBedrockRulesFormDelayed(player))
+                .build();
+
+        FloodgateApi.getInstance().sendForm(uuid, form);
+    }
+
     private void reopenBedrockFormDelayed(Player player, boolean registered) {
         plugin.getServer().getScheduler().buildTask(plugin, () -> {
             if (player.isActive() && !plugin.isAuthenticated(player.getUniqueId())) {
                 openBedrockAuthForm(player, registered);
+            }
+        }).delay(1, TimeUnit.SECONDS).schedule();
+    }
+
+    private void reopenBedrockRulesFormDelayed(Player player) {
+        plugin.getServer().getScheduler().buildTask(plugin, () -> {
+            if (player.isActive() && plugin.isPendingRules(player.getUniqueId())) {
+                openBedrockRulesForm(player);
             }
         }).delay(1, TimeUnit.SECONDS).schedule();
     }
@@ -287,6 +396,19 @@ public class VelocityListener {
             sendPluginMessage(player, baos.toByteArray());
         } catch (IOException e) {
             plugin.getLogger().error("Failed to construct PACKET_OPEN_GUI", e);
+        }
+    }
+
+    private void sendOpenRulesToPaper(Player player) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             DataOutputStream dos = new DataOutputStream(baos)) {
+
+            dos.writeByte(AuthBridgeProtocol.PACKET_OPEN_RULES);
+            dos.writeUTF(player.getUniqueId().toString());
+
+            sendPluginMessage(player, baos.toByteArray());
+        } catch (IOException e) {
+            plugin.getLogger().error("Failed to construct PACKET_OPEN_RULES", e);
         }
     }
 

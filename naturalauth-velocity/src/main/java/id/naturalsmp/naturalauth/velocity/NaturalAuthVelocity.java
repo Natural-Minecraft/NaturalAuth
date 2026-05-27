@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -39,7 +40,7 @@ public class NaturalAuthVelocity {
     private final ProxyServer server;
     private final Logger logger;
     private final Path dataDirectory;
-    
+
     private DatabaseManager databaseManager;
     private SessionManager sessionManager;
     private Toml config;
@@ -47,7 +48,13 @@ public class NaturalAuthVelocity {
     public static final MinecraftChannelIdentifier BRIDGE_CHANNEL =
             MinecraftChannelIdentifier.from(AuthBridgeProtocol.FULL_CHANNEL);
 
+    // Players that have completed the full auth + rules flow
     private final Set<UUID> authenticatedPlayers = ConcurrentHashMap.newKeySet();
+
+    // Players that verified their password but still need to accept the rules
+    private final Set<UUID> pendingRulesPlayers = ConcurrentHashMap.newKeySet();
+
+    // Tracks when unauthenticated players joined (for timeout enforcement)
     private final Map<UUID, Long> joinTimes = new ConcurrentHashMap<>();
 
     @Inject
@@ -59,10 +66,8 @@ public class NaturalAuthVelocity {
 
     @Subscribe
     public void onProxyInitialization(ProxyInitializeEvent event) {
-        // Load Configuration
         loadConfig();
 
-        // Initialize Database
         databaseManager = new DatabaseManager(logger);
         Toml dbSection = config.getTable("database");
         databaseManager.init(
@@ -74,7 +79,6 @@ public class NaturalAuthVelocity {
                 dbSection.getString("table-prefix", "naturalauth_")
         );
 
-        // Initialize Session Manager
         Toml settingsSection = config.getTable("settings");
         sessionManager = new SessionManager(
                 databaseManager,
@@ -82,10 +86,7 @@ public class NaturalAuthVelocity {
                 settingsSection.getBoolean("auto-login", true)
         );
 
-        // Register Channel
         server.getChannelRegistrar().register(BRIDGE_CHANNEL);
-
-        // Register Listeners
         server.getEventManager().register(this, new VelocityListener(this));
 
         logger.info("NaturalAuth Velocity Plugin has been initialized successfully!");
@@ -93,9 +94,7 @@ public class NaturalAuthVelocity {
 
     @Subscribe
     public void onProxyShutdown(ProxyShutdownEvent event) {
-        if (databaseManager != null) {
-            databaseManager.close();
-        }
+        if (databaseManager != null) databaseManager.close();
         logger.info("NaturalAuth Velocity Plugin has been shut down.");
     }
 
@@ -111,11 +110,8 @@ public class NaturalAuthVelocity {
         File configFile = new File(dataDirectory.toFile(), "config.toml");
         if (!configFile.exists()) {
             try (InputStream in = getClass().getResourceAsStream("/config.toml")) {
-                if (in != null) {
-                    Files.copy(in, configFile.toPath());
-                } else {
-                    configFile.createNewFile();
-                }
+                if (in != null) Files.copy(in, configFile.toPath());
+                else configFile.createNewFile();
             } catch (IOException e) {
                 logger.error("Could not create default config file", e);
             }
@@ -124,33 +120,7 @@ public class NaturalAuthVelocity {
         config = new Toml().read(configFile);
     }
 
-    public ProxyServer getServer() {
-        return server;
-    }
-
-    public Logger getLogger() {
-        return logger;
-    }
-
-    public DatabaseManager getDatabaseManager() {
-        return databaseManager;
-    }
-
-    public SessionManager getSessionManager() {
-        return sessionManager;
-    }
-
-    public Toml getConfig() {
-        return config;
-    }
-
-    public Set<UUID> getAuthenticatedPlayers() {
-        return authenticatedPlayers;
-    }
-
-    public Map<UUID, Long> getJoinTimes() {
-        return joinTimes;
-    }
+    // ───── Auth State ────────────────────────────────────────────────────────
 
     public boolean isAuthenticated(UUID uuid) {
         return authenticatedPlayers.contains(uuid);
@@ -159,13 +129,68 @@ public class NaturalAuthVelocity {
     public void setAuthenticated(UUID uuid, boolean auth) {
         if (auth) {
             authenticatedPlayers.add(uuid);
-            joinTimes.remove(uuid); // Clean up join time
+            pendingRulesPlayers.remove(uuid);
+            joinTimes.remove(uuid);
         } else {
             authenticatedPlayers.remove(uuid);
         }
     }
 
-    // Password processing logic
+    public boolean isPendingRules(UUID uuid) {
+        return pendingRulesPlayers.contains(uuid);
+    }
+
+    public void setPendingRules(UUID uuid, boolean pending) {
+        if (pending) pendingRulesPlayers.add(uuid);
+        else pendingRulesPlayers.remove(uuid);
+    }
+
+    // ───── Getters ───────────────────────────────────────────────────────────
+
+    public ProxyServer getServer() { return server; }
+    public Logger getLogger() { return logger; }
+    public DatabaseManager getDatabaseManager() { return databaseManager; }
+    public SessionManager getSessionManager() { return sessionManager; }
+    public Toml getConfig() { return config; }
+    public Set<UUID> getAuthenticatedPlayers() { return authenticatedPlayers; }
+    public Map<UUID, Long> getJoinTimes() { return joinTimes; }
+
+    // ───── Rules Config Helpers ──────────────────────────────────────────────
+
+    public boolean isRulesEnabled() {
+        Toml rulesSection = config.getTable("rules");
+        return rulesSection != null && rulesSection.getBoolean("enabled", false);
+    }
+
+    public String getRulesTitle() {
+        Toml r = config.getTable("rules");
+        return r != null ? r.getString("title", "Server Rules ⚠") : "Server Rules ⚠";
+    }
+
+    public String getRulesContent() {
+        Toml r = config.getTable("rules");
+        return r != null ? r.getString("content", "Please read and accept our server rules:") : "Please read and accept our server rules:";
+    }
+
+    public List<String> getRulesList() {
+        Toml r = config.getTable("rules");
+        if (r == null) return List.of();
+        List<String> list = r.getList("list");
+        return list != null ? list : List.of();
+    }
+
+    public String getRulesToggleLabel() {
+        Toml r = config.getTable("rules");
+        return r != null ? r.getString("toggle-label", "I have read and agree to the server rules") : "I have read and agree to the server rules";
+    }
+
+    public String getRulesAcceptButton() {
+        Toml r = config.getTable("rules");
+        return r != null ? r.getString("accept-button", "I Accept") : "I Accept";
+    }
+
+    // ───── Crypto ────────────────────────────────────────────────────────────
+
     public boolean verifyPassword(String username, String password) {
         String hash = databaseManager.getPasswordHash(username);
         if (hash == null) return false;
@@ -179,8 +204,7 @@ public class NaturalAuthVelocity {
 
     public boolean register(UUID uuid, String username, String password) {
         int rounds = config.getTable("settings").getLong("bcrypt-rounds", 10L).intValue();
-        String salt = BCrypt.gensalt(rounds);
-        String hash = BCrypt.hashpw(password, salt);
+        String hash = BCrypt.hashpw(password, BCrypt.gensalt(rounds));
         return databaseManager.registerUser(uuid, username, hash);
     }
 }

@@ -3,6 +3,7 @@ package id.naturalsmp.naturalauth.paper.listener;
 import id.naturalsmp.naturalauth.common.AuthBridgeProtocol;
 import id.naturalsmp.naturalauth.paper.NaturalAuthPaper;
 import id.naturalsmp.naturalauth.paper.gui.AnvilGuiRenderer;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -66,6 +67,7 @@ public class PaperListener implements Listener, PluginMessageListener {
                 if (target != null && target.isOnline()) {
                     if (success) {
                         plugin.setAuthenticated(uuid, true);
+                        plugin.setPendingRules(uuid, false);
                         activeGuiType.remove(uuid);
                         activePrompt.remove(uuid);
                         target.sendMessage("§a§lNaturalAuth §r§aLogin berhasil!");
@@ -75,6 +77,16 @@ public class PaperListener implements Listener, PluginMessageListener {
                         // Update prompt so the reopened GUI displays the error
                         activePrompt.put(uuid, msg);
                     }
+                }
+            } else if (packetId == AuthBridgeProtocol.PACKET_OPEN_RULES) {
+                UUID uuid = UUID.fromString(dis.readUTF());
+                Player target = Bukkit.getPlayer(uuid);
+                if (target != null && target.isOnline()) {
+                    plugin.setPendingRules(uuid, true);
+                    activeGuiType.remove(uuid);
+                    activePrompt.remove(uuid);
+                    target.closeInventory();
+                    sendRulesChatMessage(target);
                 }
             }
 
@@ -90,6 +102,8 @@ public class PaperListener implements Listener, PluginMessageListener {
         UUID uuid = player.getUniqueId();
         
         plugin.setAuthenticated(uuid, false);
+        plugin.setPendingRules(uuid, false);
+        AnvilGuiRenderer.clearTempPassword(uuid);
 
         // Teleport to lobby spawn location
         player.teleport(plugin.getSpawnLocation());
@@ -106,15 +120,18 @@ public class PaperListener implements Listener, PluginMessageListener {
     public void onPlayerQuit(PlayerQuitEvent event) {
         UUID uuid = event.getPlayer().getUniqueId();
         plugin.setAuthenticated(uuid, false);
+        plugin.setPendingRules(uuid, false);
         activeGuiType.remove(uuid);
         activePrompt.remove(uuid);
+        AnvilGuiRenderer.clearTempPassword(uuid);
     }
 
-    // Block player actions when not authenticated
+    // Block player actions when not authenticated or pending rules
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
-        if (!plugin.isAuthenticated(player.getUniqueId())) {
+        UUID uuid = player.getUniqueId();
+        if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
             Location from = event.getFrom();
             Location to = event.getTo();
             
@@ -128,31 +145,47 @@ public class PaperListener implements Listener, PluginMessageListener {
     @EventHandler
     public void onPlayerChat(AsyncPlayerChatEvent event) {
         Player player = event.getPlayer();
-        if (!plugin.isAuthenticated(player.getUniqueId())) {
+        UUID uuid = player.getUniqueId();
+        if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
             event.setCancelled(true);
-            player.sendMessage("§cAnda harus login terlebih dahulu!");
+            if (plugin.isPendingRules(uuid)) {
+                player.sendMessage("§cAnda harus menyetujui peraturan server terlebih dahulu!");
+            } else {
+                player.sendMessage("§cAnda harus login terlebih dahulu!");
+            }
         }
     }
 
     @EventHandler
     public void onPlayerCommand(PlayerCommandPreprocessEvent event) {
         Player player = event.getPlayer();
-        if (!plugin.isAuthenticated(player.getUniqueId())) {
+        UUID uuid = player.getUniqueId();
+        if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
+            String message = event.getMessage().toLowerCase();
+            if (message.startsWith("/naturalauth ") || message.startsWith("/na ") || message.equals("/naturalauth") || message.equals("/na")) {
+                return;
+            }
             event.setCancelled(true);
-            player.sendMessage("§cAnda harus login terlebih dahulu!");
+            if (plugin.isPendingRules(uuid)) {
+                player.sendMessage("§cAnda harus menyetujui peraturan server terlebih dahulu!");
+            } else {
+                player.sendMessage("§cAnda harus login terlebih dahulu!");
+            }
         }
     }
 
     @EventHandler
     public void onBlockBreak(BlockBreakEvent event) {
-        if (!plugin.isAuthenticated(event.getPlayer().getUniqueId())) {
+        UUID uuid = event.getPlayer().getUniqueId();
+        if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
             event.setCancelled(true);
         }
     }
 
     @EventHandler
     public void onBlockPlace(BlockPlaceEvent event) {
-        if (!plugin.isAuthenticated(event.getPlayer().getUniqueId())) {
+        UUID uuid = event.getPlayer().getUniqueId();
+        if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
             event.setCancelled(true);
         }
     }
@@ -160,7 +193,8 @@ public class PaperListener implements Listener, PluginMessageListener {
     @EventHandler
     public void onEntityDamage(EntityDamageEvent event) {
         if (event.getEntity() instanceof Player player) {
-            if (!plugin.isAuthenticated(player.getUniqueId())) {
+            UUID uuid = player.getUniqueId();
+            if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
                 event.setCancelled(true);
             }
         }
@@ -168,14 +202,16 @@ public class PaperListener implements Listener, PluginMessageListener {
 
     @EventHandler
     public void onPlayerDropItem(PlayerDropItemEvent event) {
-        if (!plugin.isAuthenticated(event.getPlayer().getUniqueId())) {
+        UUID uuid = event.getPlayer().getUniqueId();
+        if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
             event.setCancelled(true);
         }
     }
 
     @EventHandler
     public void onPlayerPickupItem(PlayerPickupItemEvent event) {
-        if (!plugin.isAuthenticated(event.getPlayer().getUniqueId())) {
+        UUID uuid = event.getPlayer().getUniqueId();
+        if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
             event.setCancelled(true);
         }
     }
@@ -183,8 +219,11 @@ public class PaperListener implements Listener, PluginMessageListener {
     @EventHandler
     public void onInventoryOpen(InventoryOpenEvent event) {
         if (event.getPlayer() instanceof Player player) {
-            // Allow only Anvil inventories for unauthenticated players
-            if (!plugin.isAuthenticated(player.getUniqueId()) && event.getInventory().getType() != org.bukkit.event.inventory.InventoryType.ANVIL) {
+            UUID uuid = player.getUniqueId();
+            // Allow only Anvil inventories for unauthenticated players, and block everything for pending rules
+            if (plugin.isPendingRules(uuid)) {
+                event.setCancelled(true);
+            } else if (!plugin.isAuthenticated(uuid) && event.getInventory().getType() != org.bukkit.event.inventory.InventoryType.ANVIL) {
                 event.setCancelled(true);
             }
         }
@@ -193,8 +232,8 @@ public class PaperListener implements Listener, PluginMessageListener {
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (event.getWhoClicked() instanceof Player player) {
-            // Block inventory clicks unless authenticated, except for Anvil GUI input/output slots (which AnvilGUI library handles itself)
-            if (!plugin.isAuthenticated(player.getUniqueId())) {
+            UUID uuid = player.getUniqueId();
+            if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
                 event.setCancelled(true);
             }
         }
@@ -203,7 +242,8 @@ public class PaperListener implements Listener, PluginMessageListener {
     @EventHandler
     public void onInventoryDrag(InventoryDragEvent event) {
         if (event.getWhoClicked() instanceof Player player) {
-            if (!plugin.isAuthenticated(player.getUniqueId())) {
+            UUID uuid = player.getUniqueId();
+            if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
                 event.setCancelled(true);
             }
         }
@@ -221,6 +261,66 @@ public class PaperListener implements Listener, PluginMessageListener {
             plugin.getLogger().severe("Failed to send PACKET_PLAYER_READY to Velocity!");
             e.printStackTrace();
         }
+    }
+
+    public void sendPacketRulesAccepted(Player player) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             DataOutputStream dos = new DataOutputStream(baos)) {
+
+            dos.writeByte(AuthBridgeProtocol.PACKET_RULES_ACCEPTED);
+            dos.writeUTF(player.getUniqueId().toString());
+
+            player.sendPluginMessage(plugin, AuthBridgeProtocol.FULL_CHANNEL, baos.toByteArray());
+        } catch (IOException e) {
+            plugin.getLogger().severe("Failed to send PACKET_RULES_ACCEPTED to Velocity!");
+            e.printStackTrace();
+        }
+    }
+
+    public void sendPacketRulesDeclined(Player player) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             DataOutputStream dos = new DataOutputStream(baos)) {
+
+            dos.writeByte(AuthBridgeProtocol.PACKET_RULES_DECLINED);
+            dos.writeUTF(player.getUniqueId().toString());
+
+            player.sendPluginMessage(plugin, AuthBridgeProtocol.FULL_CHANNEL, baos.toByteArray());
+        } catch (IOException e) {
+            plugin.getLogger().severe("Failed to send PACKET_RULES_DECLINED to Velocity!");
+            e.printStackTrace();
+        }
+    }
+
+    private void sendRulesChatMessage(Player player) {
+        player.sendMessage(Component.text("§8§m──────────────────────────────────"));
+        player.sendMessage(Component.text("§6§l    \u26A0 SERVER RULES \u26A0"));
+        player.sendMessage(Component.text("§8§m──────────────────────────────────"));
+        player.sendMessage(Component.text("§7Please read and accept our rules:\n"));
+
+        player.sendMessage(Component.text("§f1. No cheating, hacking, or exploits of any kind."));
+        player.sendMessage(Component.text("§f2. Be respectful to all players and staff."));
+        player.sendMessage(Component.text("§f3. No spamming, advertising, or inappropriate content."));
+        player.sendMessage(Component.text("§f4. Follow all staff instructions."));
+        player.sendMessage(Component.text("§f5. Have fun and play fair!\n"));
+
+        player.sendMessage(Component.text("§8§m──────────────────────────────────"));
+        player.sendMessage(Component.text("§7Do you agree to these rules?"));
+
+        var acceptButton = Component.text("§a[✔ SETUJU]")
+                .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/naturalauth acceptrules"))
+                .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(Component.text("Klik untuk menyetujui peraturan server.")));
+
+        var declineButton = Component.text("§c[✖ TOLAK]")
+                .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/naturalauth declinerules"))
+                .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(Component.text("Klik untuk menolak peraturan (Anda akan dikick).")));
+
+        var choiceLine = Component.text("  ")
+                .append(acceptButton)
+                .append(Component.text("§7 atau "))
+                .append(declineButton);
+
+        player.sendMessage(choiceLine);
+        player.sendMessage(Component.text("§8§m──────────────────────────────────"));
     }
 
     public Map<UUID, String> getActiveGuiType() {

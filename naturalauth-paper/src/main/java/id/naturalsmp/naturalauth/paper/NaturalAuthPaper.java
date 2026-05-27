@@ -16,6 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class NaturalAuthPaper extends JavaPlugin {
 
     private final Set<UUID> authenticatedPlayers = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> pendingRulesPlayers = ConcurrentHashMap.newKeySet();
     private PaperListener listener;
     private Location spawnLocation;
     private Location schematicPasteLocation;
@@ -33,6 +34,42 @@ public class NaturalAuthPaper extends JavaPlugin {
 
         // Register events
         getServer().getPluginManager().registerEvents(listener, this);
+
+        // Register commands
+        if (getCommand("naturalauth") != null) {
+            getCommand("naturalauth").setExecutor((sender, command, label, args) -> {
+                if (!(sender instanceof org.bukkit.entity.Player player)) {
+                    sender.sendMessage("Hanya pemain yang dapat menjalankan perintah ini!");
+                    return true;
+                }
+                
+                UUID uuid = player.getUniqueId();
+                if (args.length > 0) {
+                    String sub = args[0].toLowerCase();
+                    if (sub.equals("acceptrules")) {
+                        if (isPendingRules(uuid)) {
+                            listener.sendPacketRulesAccepted(player);
+                            setPendingRules(uuid, false);
+                            setAuthenticated(uuid, true);
+                        } else {
+                            player.sendMessage("§cAnda tidak sedang dalam antrean persetujuan peraturan!");
+                        }
+                        return true;
+                    } else if (sub.equals("declinerules")) {
+                        if (isPendingRules(uuid)) {
+                            listener.sendPacketRulesDeclined(player);
+                            setPendingRules(uuid, false);
+                            player.kick(net.kyori.adventure.text.Component.text("§cAnda harus menyetujui peraturan untuk bermain!"));
+                        } else {
+                            player.sendMessage("§cAnda tidak sedang dalam antrean persetujuan peraturan!");
+                        }
+                        return true;
+                    }
+                }
+                player.sendMessage("§cUsage: /naturalauth <acceptrules|declinerules>");
+                return true;
+            });
+        }
 
         // Load schematic
         if (enableSchematicLoading) {
@@ -90,13 +127,31 @@ public class NaturalAuthPaper extends JavaPlugin {
     public void setAuthenticated(UUID uuid, boolean auth) {
         if (auth) {
             authenticatedPlayers.add(uuid);
+            pendingRulesPlayers.remove(uuid);
         } else {
             authenticatedPlayers.remove(uuid);
         }
     }
 
+    public boolean isPendingRules(UUID uuid) {
+        return pendingRulesPlayers.contains(uuid);
+    }
+
+    public void setPendingRules(UUID uuid, boolean pending) {
+        if (pending) {
+            pendingRulesPlayers.add(uuid);
+            authenticatedPlayers.remove(uuid); // Safety check
+        } else {
+            pendingRulesPlayers.remove(uuid);
+        }
+    }
+
     public Set<UUID> getAuthenticatedPlayers() {
         return authenticatedPlayers;
+    }
+
+    public Set<UUID> getPendingRulesPlayers() {
+        return pendingRulesPlayers;
     }
 
     public Location getSpawnLocation() {

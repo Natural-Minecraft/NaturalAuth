@@ -14,10 +14,27 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class AnvilGuiRenderer {
 
+    private static final Map<UUID, String> tempPasswords = new ConcurrentHashMap<>();
+
+    public static void clearTempPassword(UUID uuid) {
+        tempPasswords.remove(uuid);
+    }
+
     public static void openAnvilGUI(NaturalAuthPaper plugin, Player player, String type, String prompt) {
+        if (type.equalsIgnoreCase("REGISTER")) {
+            openRegisterStep1(plugin, player, prompt);
+        } else {
+            openLoginGUI(plugin, player, prompt);
+        }
+    }
+
+    private static void openLoginGUI(NaturalAuthPaper plugin, Player player, String prompt) {
         ItemStack itemLeft = new ItemStack(Material.PAPER);
         ItemMeta meta = itemLeft.getItemMeta();
         if (meta != null) {
@@ -27,7 +44,7 @@ public class AnvilGuiRenderer {
 
         new AnvilGUI.Builder()
                 .plugin(plugin)
-                .title(type.equalsIgnoreCase("LOGIN") ? "Login - Tulis Password" : "Daftar - Tulis Password")
+                .title("Login - Tulis Password")
                 .text(prompt)
                 .itemLeft(itemLeft)
                 .onClick((slot, stateSnapshot) -> {
@@ -37,25 +54,110 @@ public class AnvilGuiRenderer {
 
                     String password = stateSnapshot.getText();
                     if (password == null || password.trim().isEmpty() || password.equalsIgnoreCase(prompt)) {
-                        player.sendMessage("§cPassword tidak boleh kosong / harus diubah!");
+                        player.sendMessage("§cPassword tidak boleh kosong!");
                         return Collections.singletonList(AnvilGUI.ResponseAction.replaceInputText(prompt));
                     }
 
-                    // Send password to Velocity via plugin messaging channel
                     submitPasswordToVelocity(plugin, player, password);
-
-                    // Close Anvil GUI. If password is wrong, Velocity will send another packet to reopen it.
                     return Arrays.asList(AnvilGUI.ResponseAction.close());
                 })
                 .onClose(stateSnapshot -> {
-                    // Reopen the GUI if player closes it without being authenticated
                     Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                        if (player.isOnline() && !plugin.isAuthenticated(player.getUniqueId())) {
-                            String currentType = plugin.getListener().getActiveGuiType().getOrDefault(player.getUniqueId(), type);
+                        if (player.isOnline() && !plugin.isAuthenticated(player.getUniqueId()) && !plugin.isPendingRules(player.getUniqueId())) {
                             String currentPrompt = plugin.getListener().getActivePrompt().getOrDefault(player.getUniqueId(), prompt);
-                            openAnvilGUI(plugin, player, currentType, currentPrompt);
+                            openLoginGUI(plugin, player, currentPrompt);
                         }
-                    }, 20L); // 1 second delay
+                    }, 20L);
+                })
+                .open(player);
+    }
+
+    private static void openRegisterStep1(NaturalAuthPaper plugin, Player player, String prompt) {
+        ItemStack itemLeft = new ItemStack(Material.PAPER);
+        ItemMeta meta = itemLeft.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(prompt);
+            itemLeft.setItemMeta(meta);
+        }
+
+        new AnvilGUI.Builder()
+                .plugin(plugin)
+                .title("Daftar - Tulis Password")
+                .text(prompt)
+                .itemLeft(itemLeft)
+                .onClick((slot, stateSnapshot) -> {
+                    if (slot != AnvilGUI.Slot.OUTPUT) {
+                        return Collections.emptyList();
+                    }
+
+                    String password = stateSnapshot.getText();
+                    if (password == null || password.trim().isEmpty() || password.equalsIgnoreCase(prompt) || password.length() < 4) {
+                        player.sendMessage("§cPassword minimal 4 karakter!");
+                        return Collections.singletonList(AnvilGUI.ResponseAction.replaceInputText(prompt));
+                    }
+
+                    tempPasswords.put(player.getUniqueId(), password);
+                    
+                    Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                        if (player.isOnline()) {
+                            openRegisterStep2(plugin, player, "Ulangi Password:");
+                        }
+                    }, 2L);
+
+                    return Arrays.asList(AnvilGUI.ResponseAction.close());
+                })
+                .onClose(stateSnapshot -> {
+                    Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                        if (player.isOnline() && !plugin.isAuthenticated(player.getUniqueId()) && !plugin.isPendingRules(player.getUniqueId()) && !tempPasswords.containsKey(player.getUniqueId())) {
+                            String currentPrompt = plugin.getListener().getActivePrompt().getOrDefault(player.getUniqueId(), prompt);
+                            openRegisterStep1(plugin, player, currentPrompt);
+                        }
+                    }, 20L);
+                })
+                .open(player);
+    }
+
+    private static void openRegisterStep2(NaturalAuthPaper plugin, Player player, String prompt) {
+        ItemStack itemLeft = new ItemStack(Material.PAPER);
+        ItemMeta meta = itemLeft.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(prompt);
+            itemLeft.setItemMeta(meta);
+        }
+
+        new AnvilGUI.Builder()
+                .plugin(plugin)
+                .title("Daftar - Konfirmasi Password")
+                .text(prompt)
+                .itemLeft(itemLeft)
+                .onClick((slot, stateSnapshot) -> {
+                    if (slot != AnvilGUI.Slot.OUTPUT) {
+                        return Collections.emptyList();
+                    }
+
+                    String confirm = stateSnapshot.getText();
+                    String firstPassword = tempPasswords.get(player.getUniqueId());
+
+                    if (firstPassword == null) {
+                        return Arrays.asList(AnvilGUI.ResponseAction.close());
+                    }
+
+                    if (!firstPassword.equals(confirm)) {
+                        player.sendMessage("§cKonfirmasi password tidak cocok! Silakan ulangi.");
+                        return Collections.singletonList(AnvilGUI.ResponseAction.replaceInputText(prompt));
+                    }
+
+                    tempPasswords.remove(player.getUniqueId());
+                    submitPasswordToVelocity(plugin, player, firstPassword);
+
+                    return Arrays.asList(AnvilGUI.ResponseAction.close());
+                })
+                .onClose(stateSnapshot -> {
+                    Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                        if (player.isOnline() && !plugin.isAuthenticated(player.getUniqueId()) && !plugin.isPendingRules(player.getUniqueId()) && tempPasswords.containsKey(player.getUniqueId())) {
+                            openRegisterStep2(plugin, player, prompt);
+                        }
+                    }, 20L);
                 })
                 .open(player);
     }

@@ -6,3 +6,9 @@ description: Paper companion plugin for NaturalAuth cross-platform authenticatio
 author: Antigravity
 depend: []
 softdepend: []
+
+commands:
+  naturalauth:
+    description: Main command for NaturalAuth
+    permission: naturalauth.use
+    aliases: [na]

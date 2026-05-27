@@ -23,12 +23,11 @@ public class DatabaseManager {
         sessionsTable = prefix + "sessions";
 
         HikariConfig config = new HikariConfig();
-        // Standard JDBC driver name (relocated at compile time)
         config.setDriverClassName("com.mysql.cj.jdbc.Driver");
         config.setJdbcUrl("jdbc:mysql://" + host + ":" + port + "/" + dbName + "?useSSL=false&allowPublicKeyRetrieval=true");
         config.setUsername(username);
         config.setPassword(password);
-        
+
         config.setMaximumPoolSize(10);
         config.setMinimumIdle(2);
         config.setIdleTimeout(300000);
@@ -38,6 +37,7 @@ public class DatabaseManager {
         dataSource = new HikariDataSource(config);
 
         createTables();
+        runMigrations();
     }
 
     public void close() {
@@ -48,11 +48,12 @@ public class DatabaseManager {
 
     private void createTables() {
         try (Connection conn = dataSource.getConnection(); Statement stmt = conn.createStatement()) {
-            // Users table
+            // Users table — includes rules_accepted column
             stmt.executeUpdate("CREATE TABLE IF NOT EXISTS " + usersTable + " (" +
                     "uuid VARCHAR(36) PRIMARY KEY, " +
                     "username VARCHAR(16) NOT NULL UNIQUE, " +
                     "password_hash VARCHAR(60) NOT NULL, " +
+                    "rules_accepted TINYINT NOT NULL DEFAULT 0, " +
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                     ")");
 
@@ -69,6 +70,29 @@ public class DatabaseManager {
             logger.error("Failed to create database tables", e);
         }
     }
+
+    /**
+     * Runs schema migrations for servers that already have the old table without rules_accepted.
+     */
+    private void runMigrations() {
+        try (Connection conn = dataSource.getConnection()) {
+            // Check if rules_accepted column exists; add it if missing (migration for existing installs)
+            DatabaseMetaData meta = conn.getMetaData();
+            try (ResultSet columns = meta.getColumns(null, null, usersTable, "rules_accepted")) {
+                if (!columns.next()) {
+                    try (Statement stmt = conn.createStatement()) {
+                        stmt.executeUpdate("ALTER TABLE " + usersTable +
+                                " ADD COLUMN rules_accepted TINYINT NOT NULL DEFAULT 0 AFTER password_hash");
+                        logger.info("Migration: added rules_accepted column to " + usersTable);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Failed to run database migrations", e);
+        }
+    }
+
+    // ───── User Methods ─────────────────────────────────────────────────────
 
     public boolean isRegistered(String username) {
         String query = "SELECT 1 FROM " + usersTable + " WHERE LOWER(username) = ? LIMIT 1";
@@ -88,9 +112,7 @@ public class DatabaseManager {
         try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(query)) {
             ps.setString(1, username.toLowerCase());
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getString("password_hash");
-                }
+                if (rs.next()) return rs.getString("password_hash");
             }
         } catch (SQLException e) {
             logger.error("Error getting password hash for: " + username, e);
@@ -123,23 +145,51 @@ public class DatabaseManager {
         }
     }
 
-    // Session methods
+    // ───── Rules Methods ────────────────────────────────────────────────────
+
+    /**
+     * Returns true if the player with the given username has accepted the server rules.
+     */
+    public boolean hasAcceptedRules(String username) {
+        String query = "SELECT rules_accepted FROM " + usersTable + " WHERE LOWER(username) = ?";
+        try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, username.toLowerCase());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt("rules_accepted") == 1;
+            }
+        } catch (SQLException e) {
+            logger.error("Error checking rules_accepted for: " + username, e);
+        }
+        return false;
+    }
+
+    /**
+     * Marks the player as having accepted the server rules.
+     */
+    public void setRulesAccepted(UUID uuid) {
+        String query = "UPDATE " + usersTable + " SET rules_accepted = 1 WHERE uuid = ?";
+        try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, uuid.toString());
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Failed to set rules_accepted for UUID: " + uuid, e);
+        }
+    }
+
+    // ───── Session Methods ───────────────────────────────────────────────────
+
     public boolean saveSession(UUID uuid, String ip, String token, int expiryHours) {
         String query = "INSERT INTO " + sessionsTable + " (uuid, ip, session_token, expiry) VALUES (?, ?, ?, ?) " +
                 "ON DUPLICATE KEY UPDATE ip = ?, session_token = ?, expiry = ?";
-        
         Timestamp expiryTimestamp = new Timestamp(System.currentTimeMillis() + (expiryHours * 3600000L));
-        
         try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(query)) {
             ps.setString(1, uuid.toString());
             ps.setString(2, ip);
             ps.setString(3, token);
             ps.setTimestamp(4, expiryTimestamp);
-            // ON DUPLICATE KEY UPDATE
             ps.setString(5, ip);
             ps.setString(6, token);
             ps.setTimestamp(7, expiryTimestamp);
-            
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             logger.error("Failed to save session for UUID: " + uuid, e);
@@ -155,8 +205,7 @@ public class DatabaseManager {
             ps.setString(3, token);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    Timestamp expiry = rs.getTimestamp("expiry");
-                    return expiry.after(new Timestamp(System.currentTimeMillis()));
+                    return rs.getTimestamp("expiry").after(new Timestamp(System.currentTimeMillis()));
                 }
             }
         } catch (SQLException e) {
