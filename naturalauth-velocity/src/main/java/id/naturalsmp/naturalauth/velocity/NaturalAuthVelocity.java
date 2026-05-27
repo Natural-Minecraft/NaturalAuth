@@ -75,21 +75,39 @@ public class NaturalAuthVelocity {
 
         databaseManager = new DatabaseManager(logger);
         Toml dbSection = config.getTable("database");
-        databaseManager.init(
-                dbSection.getString("host", "localhost"),
-                dbSection.getLong("port", 3306L).intValue(),
-                dbSection.getString("name", "nsmp_naturalauth"),
-                dbSection.getString("username", "root"),
-                dbSection.getString("password", ""),
-                dbSection.getString("table-prefix", "naturalauth_")
-        );
+        String host = "localhost";
+        int port = 3306;
+        String name = "nsmp_naturalauth";
+        String username = "root";
+        String password = "";
+        String prefix = "naturalauth_";
+
+        if (dbSection != null) {
+            host = dbSection.getString("host", "localhost");
+            Long p = dbSection.getLong("port");
+            if (p != null) port = p.intValue();
+            name = dbSection.getString("name", "nsmp_naturalauth");
+            username = dbSection.getString("username", "root");
+            password = dbSection.getString("password", "");
+            prefix = dbSection.getString("table-prefix", "naturalauth_");
+        } else {
+            logger.warn("Database configuration section [database] is missing in config.toml! Using default settings.");
+        }
+        databaseManager.init(host, port, name, username, password, prefix);
 
         Toml settingsSection = config.getTable("settings");
-        sessionManager = new SessionManager(
-                databaseManager,
-                settingsSection.getLong("session-expiry-hours", 24L).intValue(),
-                settingsSection.getBoolean("auto-login", true)
-        );
+        int sessionExpiryHours = 24;
+        boolean autoLogin = true;
+
+        if (settingsSection != null) {
+            Long exp = settingsSection.getLong("session-expiry-hours");
+            if (exp != null) sessionExpiryHours = exp.intValue();
+            Boolean al = settingsSection.getBoolean("auto-login");
+            if (al != null) autoLogin = al;
+        } else {
+            logger.warn("Settings configuration section [settings] is missing in config.toml! Using default settings.");
+        }
+        sessionManager = new SessionManager(databaseManager, sessionExpiryHours, autoLogin);
 
         server.getChannelRegistrar().register(BRIDGE_CHANNEL);
         server.getEventManager().register(this, new VelocityListener(this));

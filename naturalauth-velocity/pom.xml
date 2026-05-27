@@ -69,8 +69,11 @@
         <defaultGoal>clean package</defaultGoal>
         <resources>
             <resource>
-                <directory>${project.basedir}/src/main/resources</directory>
+                <directory>src/main/resources</directory>
                 <filtering>true</filtering>
+                <includes>
+                    <include>config.toml</include>
+                </includes>
             </resource>
         </resources>
         <plugins>
