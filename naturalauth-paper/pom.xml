@@ -89,6 +89,13 @@
                             </relocations>
                             <filters>
                                 <filter>
+                                    <artifact>net.wesjd:anvilgui</artifact>
+                                    <excludes>
+                                        <exclude>net/wesjd/anvilgui/version/Wrapper25*.class</exclude>
+                                        <exclude>net/wesjd/anvilgui/version/Wrapper26*.class</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
                                     <artifact>*:*</artifact>
                                     <excludes>
                                         <exclude>META-INF/*.SF</exclude>
