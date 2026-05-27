@@ -63,13 +63,13 @@
                     <include>plugin.yml</include>
                 </includes>
             </resource>
-            <!-- config.yml: NOT filtered — prevents Maven from mangling YAML -->
+            <!-- All other resources: NOT filtered (prevents YAML corruption and packages everything else) -->
             <resource>
                 <directory>src/main/resources</directory>
                 <filtering>false</filtering>
-                <includes>
-                    <include>config.yml</include>
-                </includes>
+                <excludes>
+                    <exclude>plugin.yml</exclude>
+                </excludes>
             </resource>
         </resources>
         <plugins>

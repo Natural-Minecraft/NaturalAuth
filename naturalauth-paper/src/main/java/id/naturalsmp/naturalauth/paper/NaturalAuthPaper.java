@@ -105,7 +105,7 @@ public class NaturalAuthPaper extends JavaPlugin {
         }
         File configFile = new File(dataFolder, "config.yml");
         if (!configFile.exists()) {
-            try (InputStream in = getClass().getClassLoader().getResourceAsStream("config.yml")) {
+            try (InputStream in = getResource("config.yml")) {
                 if (in != null) {
                     try (OutputStream out = Files.newOutputStream(configFile.toPath())) {
                         byte[] buf = new byte[8192];
@@ -116,7 +116,7 @@ public class NaturalAuthPaper extends JavaPlugin {
                     }
                     getLogger().info("config.yml created from default.");
                 } else {
-                    getLogger().warning("Default config.yml not found in plugin JAR!");
+                    getLogger().warning("Default config.yml not found in plugin JAR via getResource!");
                     // Fall back to Bukkit's method
                     saveDefaultConfig();
                 }
