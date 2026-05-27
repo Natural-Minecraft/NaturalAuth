@@ -14,6 +14,9 @@ import id.naturalsmp.naturalauth.common.AuthBridgeProtocol;
 import id.naturalsmp.naturalauth.velocity.database.DatabaseManager;
 import id.naturalsmp.naturalauth.velocity.listener.VelocityListener;
 import id.naturalsmp.naturalauth.velocity.session.SessionManager;
+import id.naturalsmp.naturalauth.velocity.command.LogoutCommand;
+import com.velocitypowered.api.command.CommandManager;
+import com.velocitypowered.api.command.CommandMeta;
 import net.kyori.adventure.text.Component;
 import org.mindrot.jbcrypt.BCrypt;
 import org.slf4j.Logger;
@@ -111,6 +114,11 @@ public class NaturalAuthVelocity {
 
         server.getChannelRegistrar().register(BRIDGE_CHANNEL);
         server.getEventManager().register(this, new VelocityListener(this));
+
+        // Register commands
+        CommandManager commandManager = server.getCommandManager();
+        CommandMeta logoutMeta = commandManager.metaBuilder("logout").build();
+        commandManager.register(logoutMeta, new LogoutCommand(this));
 
         // Start Survival server online status checking task (runs immediately, then every 5 minutes)
         checkSurvivalStatus();

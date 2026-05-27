@@ -42,3 +42,8 @@ list = [
 toggle-label = "I have read and agree to the server rules"
 # Submit/accept button text (Bedrock)
 accept-button = "I Accept"
+
+[messages]
+# Message sent to player when they logout successfully and are kicked
+logout-success = "&aAnda telah berhasil logout.\n&7Silakan masuk kembali untuk login ulang."
+
