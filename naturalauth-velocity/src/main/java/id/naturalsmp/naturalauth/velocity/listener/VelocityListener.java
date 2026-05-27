@@ -14,7 +14,7 @@ import id.naturalsmp.naturalauth.common.AuthBridgeProtocol;
 import id.naturalsmp.naturalauth.velocity.NaturalAuthVelocity;
 import net.kyori.adventure.text.Component;
 import id.naturalsmp.naturalauth.velocity.FloodgateHelper;
-import org.geysermc.cumulus.form.CustomForm;
+import id.naturalsmp.naturalauth.velocity.BedrockAuthProvider;
 
 import java.io.*;
 import java.util.UUID;
@@ -23,9 +23,19 @@ import java.util.concurrent.TimeUnit;
 public class VelocityListener {
 
     private final NaturalAuthVelocity plugin;
+    private BedrockAuthProvider bedrockAuthProvider;
 
     public VelocityListener(NaturalAuthVelocity plugin) {
         this.plugin = plugin;
+        if (FloodgateHelper.isAvailable()) {
+            try {
+                this.bedrockAuthProvider = (BedrockAuthProvider) Class.forName("id.naturalsmp.naturalauth.velocity.BedrockFormHelper")
+                        .getConstructor(NaturalAuthVelocity.class, VelocityListener.class)
+                        .newInstance(plugin, this);
+            } catch (Exception e) {
+                plugin.getLogger().error("Failed to load BedrockFormHelper dynamically", e);
+            }
+        }
     }
 
     @Subscribe
@@ -47,7 +57,7 @@ public class VelocityListener {
                 // Rules need to be accepted
                 plugin.getServer().getScheduler().buildTask(plugin, () -> {
                     if (FloodgateHelper.isFloodgatePlayer(player.getUniqueId())) {
-                        openBedrockRulesForm(player);
+                        if (bedrockAuthProvider != null) bedrockAuthProvider.openRulesForm(player);
                     } else {
                         sendOpenRulesToPaper(player);
                     }
@@ -186,7 +196,9 @@ public class VelocityListener {
 
         if (FloodgateHelper.isFloodgatePlayer(uuid)) {
             // Bedrock Flow - Native GUI Form
-            openBedrockAuthForm(player, registered);
+            if (bedrockAuthProvider != null) {
+                bedrockAuthProvider.openAuthForm(player, registered);
+            }
         } else {
             // Java Flow - Signal Paper companion to open Anvil GUI
             sendOpenGuiToPaper(player, registered ? "LOGIN" : "REGISTER", 
@@ -223,7 +235,7 @@ public class VelocityListener {
         }
     }
 
-    private void handlePasswordVerified(Player player) {
+    public void handlePasswordVerified(Player player) {
         UUID uuid = player.getUniqueId();
         if (plugin.isRulesEnabled() && !plugin.getDatabaseManager().hasAcceptedRules(player.getUsername())) {
             plugin.setPendingRules(uuid, true);
@@ -232,7 +244,7 @@ public class VelocityListener {
             sendAuthStatusToPaper(player, true, "Success");
             
             if (FloodgateHelper.isFloodgatePlayer(uuid)) {
-                openBedrockRulesForm(player);
+                if (bedrockAuthProvider != null) bedrockAuthProvider.openRulesForm(player);
             } else {
                 sendOpenRulesToPaper(player);
             }
@@ -241,7 +253,7 @@ public class VelocityListener {
         }
     }
 
-    private void finalizeAuth(Player player) {
+    public void finalizeAuth(Player player) {
         UUID uuid = player.getUniqueId();
         String ip = player.getRemoteAddress().getAddress().getHostAddress();
 
@@ -269,123 +281,7 @@ public class VelocityListener {
         }
     }
 
-    private void openBedrockAuthForm(Player player, boolean registered) {
-        UUID uuid = player.getUniqueId();
-        
-        if (!registered) {
-            CustomForm form = CustomForm.builder()
-                    .title("Create Account \u26A0")
-                    .input("Welcome! Create a secure password below.\n\n§7Your password protects your progress.\n\n§fPassword:", "Min. 4 characters...")
-                    .input("Confirm Password:", "Repeat password...")
-                    .validResultHandler(response -> {
-                        String password = response.getInput(0);
-                        String confirm = response.getInput(1);
-                        
-                        if (password == null || password.isEmpty() || confirm == null || confirm.isEmpty()) {
-                            player.sendMessage(Component.text("§cPassword tidak boleh kosong!"));
-                            reopenBedrockFormDelayed(player, false);
-                            return;
-                        }
-                        
-                        if (password.length() < 4) {
-                            player.sendMessage(Component.text("§cPassword minimal 4 karakter!"));
-                            reopenBedrockFormDelayed(player, false);
-                            return;
-                        }
-                        
-                        if (!password.equals(confirm)) {
-                            player.sendMessage(Component.text("§cKonfirmasi password tidak cocok!"));
-                            reopenBedrockFormDelayed(player, false);
-                            return;
-                        }
-                        
-                        boolean success = plugin.register(uuid, player.getUsername(), password);
-                        if (success) {
-                            player.sendMessage(Component.text("§aRegistrasi berhasil!"));
-                            handlePasswordVerified(player);
-                        } else {
-                            player.sendMessage(Component.text("§cRegistrasi gagal! Silakan coba lagi."));
-                            reopenBedrockFormDelayed(player, false);
-                        }
-                    })
-                    .closedResultHandler(() -> reopenBedrockFormDelayed(player, false))
-                    .build();
 
-            FloodgateHelper.sendForm(uuid, form);
-        } else {
-            CustomForm form = CustomForm.builder()
-                    .title("Welcome Back! \u26A0")
-                    .input("Please enter your password to continue.\n\n§7If you forgot your password, contact staff.\n\n§fPassword:", "Enter your password...")
-                    .validResultHandler(response -> {
-                        String password = response.getInput(0);
-                        if (password == null || password.isEmpty()) {
-                            player.sendMessage(Component.text("§cPassword tidak boleh kosong!"));
-                            reopenBedrockFormDelayed(player, true);
-                            return;
-                        }
-                        
-                        if (plugin.verifyPassword(player.getUsername(), password)) {
-                            player.sendMessage(Component.text("§aLogin berhasil!"));
-                            handlePasswordVerified(player);
-                        } else {
-                            player.sendMessage(Component.text("§cPassword salah!"));
-                            reopenBedrockFormDelayed(player, true);
-                        }
-                    })
-                    .closedResultHandler(() -> reopenBedrockFormDelayed(player, true))
-                    .build();
-
-            FloodgateHelper.sendForm(uuid, form);
-        }
-    }
-
-    private void openBedrockRulesForm(Player player) {
-        UUID uuid = player.getUniqueId();
-        
-        // Build the rules text
-        StringBuilder rulesContent = new StringBuilder("§e" + plugin.getRulesContent() + "\n\n");
-        for (String rule : plugin.getRulesList()) {
-            rulesContent.append("§f").append(rule).append("\n");
-        }
-        rulesContent.append("\n§7").append(plugin.getRulesToggleLabel()).append(".");
-        
-        CustomForm form = CustomForm.builder()
-                .title(plugin.getRulesTitle())
-                .label(rulesContent.toString())
-                .toggle(plugin.getRulesToggleLabel(), false)
-                .validResultHandler(response -> {
-                    boolean accepted = response.getToggle(1);
-                    if (!accepted) {
-                        player.sendMessage(Component.text("§cAnda harus menyetujui peraturan untuk bermain!"));
-                        reopenBedrockRulesFormDelayed(player);
-                        return;
-                    }
-                    
-                    plugin.getDatabaseManager().setRulesAccepted(uuid);
-                    player.sendMessage(Component.text("§aAnda telah menyetujui peraturan server!"));
-                    finalizeAuth(player);
-                })
-                .closedResultHandler(() -> reopenBedrockRulesFormDelayed(player))
-                .build();
-
-        FloodgateHelper.sendForm(uuid, form);
-    }
-
-    private void reopenBedrockFormDelayed(Player player, boolean registered) {
-        plugin.getServer().getScheduler().buildTask(plugin, () -> {
-            if (player.isActive() && !plugin.isAuthenticated(player.getUniqueId())) {
-                openBedrockAuthForm(player, registered);
-            }
-        }).delay(1, TimeUnit.SECONDS).schedule();
-    }
-
-    private void reopenBedrockRulesFormDelayed(Player player) {
-        plugin.getServer().getScheduler().buildTask(plugin, () -> {
-            if (player.isActive() && plugin.isPendingRules(player.getUniqueId())) {
-                openBedrockRulesForm(player);
-            }
-        }).delay(1, TimeUnit.SECONDS).schedule();
-    }
 
     // Outbound Bridge Messages
     private void sendOpenGuiToPaper(Player player, String type, String message) {

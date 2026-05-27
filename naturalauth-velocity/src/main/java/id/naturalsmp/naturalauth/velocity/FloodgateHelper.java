@@ -1,9 +1,6 @@
 package id.naturalsmp.naturalauth.velocity;
 
-import org.geysermc.cumulus.form.Form;
-
 import java.util.UUID;
-import java.util.logging.Logger;
 
 /**
  * Safe wrapper around Floodgate API.
@@ -44,16 +41,5 @@ public final class FloodgateHelper {
         } catch (Exception e) {
             return false;
         }
-    }
-
-    /**
-     * Send a Cumulus form to a Bedrock player.
-     * No-op if Floodgate is not available.
-     */
-    public static void sendForm(UUID uuid, Form form) {
-        if (!AVAILABLE) return;
-        try {
-            org.geysermc.floodgate.api.FloodgateApi.getInstance().sendForm(uuid, form);
-        } catch (Exception ignored) {}
     }
 }
