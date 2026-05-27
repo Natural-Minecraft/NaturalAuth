@@ -144,9 +144,13 @@ public class VelocityListener {
              DataInputStream dis = new DataInputStream(bais)) {
 
             byte packetId = dis.readByte();
+            plugin.getLogger().info("[NaturalAuth-Debug] Received PluginMessage on Velocity proxy, Packet ID: " + packetId);
+            
             if (packetId == AuthBridgeProtocol.PACKET_PLAYER_READY) {
                 UUID uuid = UUID.fromString(dis.readUTF());
+                plugin.getLogger().info("[NaturalAuth-Debug] PACKET_PLAYER_READY uuid: " + uuid);
                 plugin.getServer().getPlayer(uuid).ifPresent(player -> {
+                    plugin.getLogger().info("[NaturalAuth-Debug] PACKET_PLAYER_READY found player: " + player.getUsername() + ", auth: " + plugin.isAuthenticated(uuid));
                     if (!plugin.isAuthenticated(uuid)) {
                         if (plugin.isPendingRules(uuid)) {
                             // Re-open rules screen if they are pending rules
@@ -288,6 +292,7 @@ public class VelocityListener {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
              DataOutputStream dos = new DataOutputStream(baos)) {
 
+            plugin.getLogger().info("[NaturalAuth-Debug] Sending PACKET_OPEN_GUI to Paper for player: " + player.getUsername() + ", type: " + type);
             dos.writeByte(AuthBridgeProtocol.PACKET_OPEN_GUI);
             dos.writeUTF(player.getUniqueId().toString());
             dos.writeUTF(type);
@@ -303,6 +308,7 @@ public class VelocityListener {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
              DataOutputStream dos = new DataOutputStream(baos)) {
 
+            plugin.getLogger().info("[NaturalAuth-Debug] Sending PACKET_OPEN_RULES to Paper for player: " + player.getUsername());
             dos.writeByte(AuthBridgeProtocol.PACKET_OPEN_RULES);
             dos.writeUTF(player.getUniqueId().toString());
 

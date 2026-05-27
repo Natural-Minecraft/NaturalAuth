@@ -47,6 +47,8 @@ public class PaperListener implements Listener, PluginMessageListener {
              DataInputStream dis = new DataInputStream(bais)) {
 
             byte packetId = dis.readByte();
+            plugin.getLogger().info("[NaturalAuth-Debug] Received PluginMessage on Paper from player " + player.getName() + ", Packet ID: " + packetId);
+            
             if (packetId == AuthBridgeProtocol.PACKET_OPEN_GUI) {
                 UUID uuid = UUID.fromString(dis.readUTF());
                 String type = dis.readUTF();
@@ -56,6 +58,7 @@ public class PaperListener implements Listener, PluginMessageListener {
                 if (target != null && target.isOnline()) {
                     activeGuiType.put(uuid, type);
                     activePrompt.put(uuid, prompt);
+                    plugin.getLogger().info("[NaturalAuth-Debug] Opening Anvil GUI for " + target.getName() + ", type: " + type + ", prompt: " + prompt);
                     AnvilGuiRenderer.openAnvilGUI(plugin, target, type, prompt);
                 }
             } else if (packetId == AuthBridgeProtocol.PACKET_AUTH_STATUS) {
@@ -256,6 +259,7 @@ public class PaperListener implements Listener, PluginMessageListener {
             dos.writeByte(AuthBridgeProtocol.PACKET_PLAYER_READY);
             dos.writeUTF(player.getUniqueId().toString());
 
+            plugin.getLogger().info("[NaturalAuth-Debug] Sending PACKET_PLAYER_READY for " + player.getName() + " on channel " + AuthBridgeProtocol.FULL_CHANNEL);
             player.sendPluginMessage(plugin, AuthBridgeProtocol.FULL_CHANNEL, baos.toByteArray());
         } catch (IOException e) {
             plugin.getLogger().severe("Failed to send PACKET_PLAYER_READY to Velocity!");
