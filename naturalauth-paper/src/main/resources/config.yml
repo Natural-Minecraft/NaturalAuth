@@ -1,0 +1,21 @@
+# NaturalAuth Configuration for Paper (Lobby Server)
+
+# Schematic / Structure settings
+# If true, the plugin will load and paste the lobby.nbt structure at startup
+enable-schematic-loading: true
+
+# The coordinate where the structure will be loaded and pasted (in the default world)
+schematic-paste:
+  world: "world"
+  x: 0
+  y: 100
+  z: 0
+
+# The player spawn location inside the lobby structure
+spawn-location:
+  world: "world"
+  x: 0.5
+  y: 102.0
+  z: 0.5
+  yaw: 0.0
+  pitch: 0.0

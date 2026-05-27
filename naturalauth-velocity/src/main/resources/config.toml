@@ -1,0 +1,44 @@
+# NaturalAuth Configuration for Velocity
+
+[database]
+host = "localhost"
+port = 3306
+name = "nsmp_naturalauth"
+username = "root"
+password = ""
+table-prefix = "naturalauth_"
+
+[servers]
+# The server where unauthenticated players are sent to authenticate (Java GUI will open here)
+lobby = "lobby"
+# The server where players are sent after successful authentication
+success-target = "survival"
+
+[settings]
+# Session duration in hours (players won't need to retype password if connecting from same IP within this duration)
+session-expiry-hours = 24
+# BCrypt work factor (hashing rounds, 10-12 is recommended)
+bcrypt-rounds = 10
+# Allow auto-login (session remember-me feature)
+auto-login = true
+
+[rules]
+# Set to true to show server rules screen before player can enter the main server
+# Players must accept once; acceptance is stored in the database
+enabled = true
+# Form title (shown on Bedrock native form)
+title = "Server Rules \u26A0"
+# Introductory text shown above the rules list
+content = "Please read and accept our server rules:"
+# List of rules (each entry = one rule line)
+list = [
+    "1. No cheating, hacking, or exploits of any kind.",
+    "2. Be respectful to all players and staff.",
+    "3. No spamming, advertising, or inappropriate content.",
+    "4. Follow all staff instructions.",
+    "5. Have fun and play fair!"
+]
+# Label shown next to the toggle checkbox (Bedrock) / accept button (Java chat)
+toggle-label = "I have read and agree to the server rules"
+# Submit/accept button text (Bedrock)
+accept-button = "I Accept"

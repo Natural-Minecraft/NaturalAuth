@@ -28,3 +28,7 @@ dependency-reduced-pom.xml
 velocity.toml
 config.toml
 config.yml
+
+# Do not ignore default config resources inside plugin source folders
+!**/src/main/resources/config.yml
+!**/src/main/resources/config.toml
