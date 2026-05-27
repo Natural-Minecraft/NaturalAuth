@@ -57,7 +57,7 @@ public class VelocityListener {
                     if (isRegistered) {
                         if (plugin.getDatabaseManager().isPremium(username)) {
                             plugin.getLogger().info("Username " + username + " is registered as premium locally. Forcing Mojang authentication.");
-                            event.setResult(PreLoginEvent.PreLoginResult.forceOnlineMode());
+                            event.setResult(PreLoginEvent.PreLoginComponentResult.forceOnlineMode());
                         }
                     } else {
                         boolean autoDetect = true;
@@ -70,7 +70,7 @@ public class VelocityListener {
                             Boolean isPremium = plugin.isPremiumMojangName(username).join();
                             if (isPremium) {
                                 plugin.getLogger().info("Username " + username + " is a premium Mojang account. Forcing Mojang authentication for new registration.");
-                                event.setResult(PreLoginEvent.PreLoginResult.forceOnlineMode());
+                                event.setResult(PreLoginEvent.PreLoginComponentResult.forceOnlineMode());
                             }
                         }
                     }
@@ -91,7 +91,7 @@ public class VelocityListener {
 
         plugin.getLogger().info("Player " + player.getUsername() + " (" + ip + ") joined the proxy.");
 
-        // Check for Premium Java player bypass
+        // ── Check for Premium Java player bypass ─────────────────────────────
         if (player.isOnlineMode()) {
             plugin.getLogger().info("Player " + player.getUsername() + " is connected in Premium mode. Bypassing login.");
             boolean registered = plugin.getDatabaseManager().isRegistered(player.getUsername());
@@ -99,14 +99,22 @@ public class VelocityListener {
                 plugin.register(uuid, player.getUsername(), "PREMIUM_AUTO_" + UUID.randomUUID().toString());
             }
             plugin.getDatabaseManager().setPremium(uuid, true);
-            
-            // Bypass login form, proceed directly
-            player.sendMessage(Component.text("§a§l[!] §r§aLogin premium otomatis berhasil!"));
-            handlePasswordVerified(player);
+
+            // Use pending mechanism — Paper PLAYER_READY will trigger the next step
+            plugin.setAuthenticated(uuid, false);
+            plugin.getJoinTimes().put(uuid, System.currentTimeMillis());
+            if (plugin.isRulesEnabled() && !plugin.getDatabaseManager().hasAcceptedRules(player.getUsername())) {
+                plugin.getLogger().info("Player " + player.getUsername() + " premium bypass: needs to accept rules.");
+                plugin.setPendingRules(uuid, true);
+                pendingAutoRulesPlayers.add(uuid);
+            } else {
+                pendingAutoLoginPlayers.add(uuid);
+                player.sendMessage(Component.text("§a§l[!] §r§aLogin premium otomatis berhasil!"));
+            }
             return;
         }
 
-        // Check for Bedrock/Floodgate player bypass
+        // ── Check for Bedrock/Floodgate player bypass ─────────────────────────
         boolean bypassBedrock = true;
         if (plugin.getConfig() != null && plugin.getConfig().getTable("settings") != null) {
             Boolean bb = plugin.getConfig().getTable("settings").getBoolean("bypass-bedrock-passwords");
@@ -118,14 +126,22 @@ public class VelocityListener {
             if (!registered) {
                 plugin.register(uuid, player.getUsername(), "BEDROCK_AUTO_" + UUID.randomUUID().toString());
             }
-            
-            // Bypass login form, proceed directly
-            player.sendMessage(Component.text("§a§l[!] §r§aAutentikasi Bedrock berhasil (Bypass password)!"));
-            handlePasswordVerified(player);
+
+            // Use pending mechanism — Paper PLAYER_READY will trigger the next step
+            plugin.setAuthenticated(uuid, false);
+            plugin.getJoinTimes().put(uuid, System.currentTimeMillis());
+            if (plugin.isRulesEnabled() && !plugin.getDatabaseManager().hasAcceptedRules(player.getUsername())) {
+                plugin.getLogger().info("Player " + player.getUsername() + " bedrock bypass: needs to accept rules.");
+                plugin.setPendingRules(uuid, true);
+                pendingAutoRulesPlayers.add(uuid);
+            } else {
+                pendingAutoLoginPlayers.add(uuid);
+                player.sendMessage(Component.text("§a§l[!] §r§aAutentikasi Bedrock berhasil (Bypass password)!"));
+            }
             return;
         }
 
-        // Check for Auto-Login via saved session
+        // ── Check for Auto-Login via saved session ────────────────────────────
         if (plugin.getSessionManager().checkAutoLogin(uuid, ip)) {
             // Check if player needs to accept rules even if session is active
             if (plugin.isRulesEnabled() && !plugin.getDatabaseManager().hasAcceptedRules(player.getUsername())) {
