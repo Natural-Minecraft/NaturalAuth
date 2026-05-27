@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>id.naturalsmp</groupId>
+    <artifactId>naturalauth-parent</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>NaturalAuthParent</name>
+    <description>Parent POM for NaturalAuth cross-platform authentication plugin</description>
+
+    <modules>
+        <module>naturalauth-common</module>
+        <module>naturalauth-velocity</module>
+        <module>naturalauth-paper</module>
+    </modules>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Sub-modules -->
+            <dependency>
+                <groupId>id.naturalsmp</groupId>
+                <artifactId>naturalauth-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            
+            <!-- Velocity API -->
+            <dependency>
+                <groupId>com.velocitypowered</groupId>
+                <artifactId>velocity-api</artifactId>
+                <version>3.4.0-SNAPSHOT</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <!-- Paper API -->
+            <dependency>
+                <groupId>io.papermc.paper</groupId>
+                <artifactId>paper-api</artifactId>
+                <version>1.21-R0.1-SNAPSHOT</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <!-- Floodgate API -->
+            <dependency>
+                <groupId>org.geysermc.floodgate</groupId>
+                <artifactId>api</artifactId>
+                <version>2.2.5-SNAPSHOT</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <!-- AnvilGUI -->
+            <dependency>
+                <groupId>net.wesjd</groupId>
+                <artifactId>anvilgui</artifactId>
+                <version>1.10.2-SNAPSHOT</version>
+            </dependency>
+
+            <!-- BCrypt for password hashing -->
+            <dependency>
+                <groupId>org.mindrot</groupId>
+                <artifactId>jbcrypt</artifactId>
+                <version>0.4</version>
+            </dependency>
+
+            <!-- HikariCP for Connection Pooling -->
+            <dependency>
+                <groupId>com.zaxxer</groupId>
+                <artifactId>HikariCP</artifactId>
+                <version>5.1.0</version>
+            </dependency>
+
+            <!-- MySQL Connector -->
+            <dependency>
+                <groupId>com.mysql</groupId>
+                <artifactId>mysql-connector-j</artifactId>
+                <version>9.1.0</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <source>${maven.compiler.source}</source>
+                    <target>${maven.compiler.target}</target>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

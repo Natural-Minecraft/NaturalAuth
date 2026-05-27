@@ -1,0 +1,8 @@
+name: NaturalAuthPaper
+version: 1.0-SNAPSHOT
+main: id.naturalsmp.naturalauth.paper.NaturalAuthPaper
+api-version: '1.21'
+description: Paper companion plugin for NaturalAuth cross-platform authentication
+author: Antigravity
+depend: []
+softdepend: []
