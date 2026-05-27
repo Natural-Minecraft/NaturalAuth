@@ -55,11 +55,19 @@
     <build>
         <defaultGoal>clean package</defaultGoal>
         <resources>
+            <!-- plugin.yml: filtered so ${project.version} is resolved -->
             <resource>
                 <directory>src/main/resources</directory>
                 <filtering>true</filtering>
                 <includes>
                     <include>plugin.yml</include>
+                </includes>
+            </resource>
+            <!-- config.yml: NOT filtered — prevents Maven from mangling YAML -->
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+                <includes>
                     <include>config.yml</include>
                 </includes>
             </resource>

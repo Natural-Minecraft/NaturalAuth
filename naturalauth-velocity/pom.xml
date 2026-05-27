@@ -68,9 +68,10 @@
     <build>
         <defaultGoal>clean package</defaultGoal>
         <resources>
+            <!-- config.toml: NOT filtered — TOML syntax is not Maven-compatible -->
             <resource>
                 <directory>src/main/resources</directory>
-                <filtering>true</filtering>
+                <filtering>false</filtering>
                 <includes>
                     <include>config.toml</include>
                 </includes>

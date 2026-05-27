@@ -13,8 +13,8 @@ import com.velocitypowered.api.proxy.server.RegisteredServer;
 import id.naturalsmp.naturalauth.common.AuthBridgeProtocol;
 import id.naturalsmp.naturalauth.velocity.NaturalAuthVelocity;
 import net.kyori.adventure.text.Component;
+import id.naturalsmp.naturalauth.velocity.FloodgateHelper;
 import org.geysermc.cumulus.form.CustomForm;
-import org.geysermc.floodgate.api.FloodgateApi;
 
 import java.io.*;
 import java.util.UUID;
@@ -46,7 +46,7 @@ public class VelocityListener {
                 
                 // Rules need to be accepted
                 plugin.getServer().getScheduler().buildTask(plugin, () -> {
-                    if (FloodgateApi.getInstance().isFloodgatePlayer(player.getUniqueId())) {
+                    if (FloodgateHelper.isFloodgatePlayer(player.getUniqueId())) {
                         openBedrockRulesForm(player);
                     } else {
                         sendOpenRulesToPaper(player);
@@ -140,7 +140,7 @@ public class VelocityListener {
                     if (!plugin.isAuthenticated(uuid)) {
                         if (plugin.isPendingRules(uuid)) {
                             // Re-open rules screen if they are pending rules
-                            if (!FloodgateApi.getInstance().isFloodgatePlayer(uuid)) {
+                            if (!FloodgateHelper.isFloodgatePlayer(uuid)) {
                                 sendOpenRulesToPaper(player);
                             }
                         } else {
@@ -184,7 +184,7 @@ public class VelocityListener {
         UUID uuid = player.getUniqueId();
         boolean registered = plugin.getDatabaseManager().isRegistered(player.getUsername());
 
-        if (FloodgateApi.getInstance().isFloodgatePlayer(uuid)) {
+        if (FloodgateHelper.isFloodgatePlayer(uuid)) {
             // Bedrock Flow - Native GUI Form
             openBedrockAuthForm(player, registered);
         } else {
@@ -231,7 +231,7 @@ public class VelocityListener {
             // Tell Paper auth was successful to close the Login/Register Anvil GUI
             sendAuthStatusToPaper(player, true, "Success");
             
-            if (FloodgateApi.getInstance().isFloodgatePlayer(uuid)) {
+            if (FloodgateHelper.isFloodgatePlayer(uuid)) {
                 openBedrockRulesForm(player);
             } else {
                 sendOpenRulesToPaper(player);
@@ -311,7 +311,7 @@ public class VelocityListener {
                     .closedResultHandler(() -> reopenBedrockFormDelayed(player, false))
                     .build();
 
-            FloodgateApi.getInstance().sendForm(uuid, form);
+            FloodgateHelper.sendForm(uuid, form);
         } else {
             CustomForm form = CustomForm.builder()
                     .title("Welcome Back! \u26A0")
@@ -335,7 +335,7 @@ public class VelocityListener {
                     .closedResultHandler(() -> reopenBedrockFormDelayed(player, true))
                     .build();
 
-            FloodgateApi.getInstance().sendForm(uuid, form);
+            FloodgateHelper.sendForm(uuid, form);
         }
     }
 
@@ -368,7 +368,7 @@ public class VelocityListener {
                 .closedResultHandler(() -> reopenBedrockRulesFormDelayed(player))
                 .build();
 
-        FloodgateApi.getInstance().sendForm(uuid, form);
+        FloodgateHelper.sendForm(uuid, form);
     }
 
     private void reopenBedrockFormDelayed(Player player, boolean registered) {

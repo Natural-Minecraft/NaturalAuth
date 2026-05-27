@@ -9,6 +9,10 @@ import org.bukkit.World;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,7 +28,7 @@ public class NaturalAuthPaper extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        saveDefaultConfig();
+        saveDefaultConfigSafe();
         loadConfigValues();
 
         // Register plugin messaging channels
@@ -88,6 +92,40 @@ public class NaturalAuthPaper extends JavaPlugin {
         getServer().getMessenger().unregisterOutgoingPluginChannel(this);
         getServer().getMessenger().unregisterIncomingPluginChannel(this);
         getLogger().info("NaturalAuth Paper companion has been disabled.");
+    }
+
+    /**
+     * Robust alternative to saveDefaultConfig().
+     * Copies config.yml from the JAR classpath to the data folder if it does not exist.
+     */
+    private void saveDefaultConfigSafe() {
+        File dataFolder = getDataFolder();
+        if (!dataFolder.exists()) {
+            dataFolder.mkdirs();
+        }
+        File configFile = new File(dataFolder, "config.yml");
+        if (!configFile.exists()) {
+            try (InputStream in = getClass().getClassLoader().getResourceAsStream("config.yml")) {
+                if (in != null) {
+                    try (OutputStream out = Files.newOutputStream(configFile.toPath())) {
+                        byte[] buf = new byte[8192];
+                        int read;
+                        while ((read = in.read(buf)) != -1) {
+                            out.write(buf, 0, read);
+                        }
+                    }
+                    getLogger().info("config.yml created from default.");
+                } else {
+                    getLogger().warning("Default config.yml not found in plugin JAR!");
+                    // Fall back to Bukkit's method
+                    saveDefaultConfig();
+                }
+            } catch (IOException e) {
+                getLogger().severe("Failed to create config.yml: " + e.getMessage());
+            }
+        }
+        // Reload from disk so getConfig() returns the correct values
+        reloadConfig();
     }
 
     private void loadConfigValues() {
