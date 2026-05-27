@@ -12,7 +12,7 @@ table-prefix = "naturalauth_"
 # The server where unauthenticated players are sent to authenticate (Java GUI will open here)
 lobby = "lobby"
 # The server where players are sent after successful authentication
-success-target = "survival"
+success-target = "school"
 
 [settings]
 # Session duration in hours (players won't need to retype password if connecting from same IP within this duration)

@@ -66,6 +66,13 @@ public class VelocityListener {
                 plugin.getLogger().info("Player " + player.getUsername() + " auto-logged in via saved session.");
                 plugin.setAuthenticated(player.getUniqueId(), true);
                 player.sendMessage(Component.text("§aAuto-login berhasil (Sesi aktif)."));
+                
+                // Automatically redirect to success-target server after 2 seconds delay to allow safe lobby join first
+                plugin.getServer().getScheduler().buildTask(plugin, () -> {
+                    if (player.isActive()) {
+                        finalizeAuth(player);
+                    }
+                }).delay(2, TimeUnit.SECONDS).schedule();
             }
         } else {
             plugin.setAuthenticated(player.getUniqueId(), false);
