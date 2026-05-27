@@ -58,8 +58,13 @@ public class PaperListener implements Listener, PluginMessageListener {
                 if (target != null && target.isOnline()) {
                     activeGuiType.put(uuid, type);
                     activePrompt.put(uuid, prompt);
-                    plugin.getLogger().info("[NaturalAuth-Debug] Opening Anvil GUI for " + target.getName() + ", type: " + type + ", prompt: " + prompt);
-                    AnvilGuiRenderer.openAnvilGUI(plugin, target, type, prompt);
+                    if (id.naturalsmp.naturalauth.paper.gui.DialogRenderer.isDialogApiAvailable()) {
+                        plugin.getLogger().info("[NaturalAuth-Debug] Opening Native Dialog GUI for " + target.getName() + ", type: " + type + ", prompt: " + prompt);
+                        id.naturalsmp.naturalauth.paper.gui.DialogRenderer.openDialogGUI(plugin, target, type, prompt);
+                    } else {
+                        plugin.getLogger().info("[NaturalAuth-Debug] Opening Anvil GUI for " + target.getName() + ", type: " + type + ", prompt: " + prompt);
+                        AnvilGuiRenderer.openAnvilGUI(plugin, target, type, prompt);
+                    }
                 }
             } else if (packetId == AuthBridgeProtocol.PACKET_AUTH_STATUS) {
                 UUID uuid = UUID.fromString(dis.readUTF());
@@ -89,7 +94,13 @@ public class PaperListener implements Listener, PluginMessageListener {
                     activeGuiType.remove(uuid);
                     activePrompt.remove(uuid);
                     target.closeInventory();
-                    sendRulesChatMessage(target);
+                    if (id.naturalsmp.naturalauth.paper.gui.DialogRenderer.isDialogApiAvailable()) {
+                        plugin.getLogger().info("[NaturalAuth-Debug] Opening Native Rules Dialog for " + target.getName());
+                        id.naturalsmp.naturalauth.paper.gui.DialogRenderer.openRulesDialog(plugin, target);
+                    } else {
+                        plugin.getLogger().info("[NaturalAuth-Debug] Sending Chat Rules for " + target.getName());
+                        sendRulesChatMessage(target);
+                    }
                 }
             }
 
