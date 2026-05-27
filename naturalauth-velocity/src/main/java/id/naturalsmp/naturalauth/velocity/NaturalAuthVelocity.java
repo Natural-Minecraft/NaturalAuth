@@ -15,6 +15,8 @@ import id.naturalsmp.naturalauth.velocity.database.DatabaseManager;
 import id.naturalsmp.naturalauth.velocity.listener.VelocityListener;
 import id.naturalsmp.naturalauth.velocity.session.SessionManager;
 import id.naturalsmp.naturalauth.velocity.command.LogoutCommand;
+import id.naturalsmp.naturalauth.velocity.command.PremiumCommand;
+import id.naturalsmp.naturalauth.velocity.command.CrackedCommand;
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.command.CommandMeta;
 import net.kyori.adventure.text.Component;
@@ -49,6 +51,7 @@ public class NaturalAuthVelocity {
     private DatabaseManager databaseManager;
     private SessionManager sessionManager;
     private Toml config;
+    private final java.net.http.HttpClient httpClient = java.net.http.HttpClient.newHttpClient();
 
     public static final MinecraftChannelIdentifier BRIDGE_CHANNEL =
             MinecraftChannelIdentifier.from(AuthBridgeProtocol.FULL_CHANNEL);
@@ -119,6 +122,12 @@ public class NaturalAuthVelocity {
         CommandManager commandManager = server.getCommandManager();
         CommandMeta logoutMeta = commandManager.metaBuilder("logout").build();
         commandManager.register(logoutMeta, new LogoutCommand(this));
+
+        CommandMeta premiumMeta = commandManager.metaBuilder("premium").build();
+        commandManager.register(premiumMeta, new PremiumCommand(this));
+
+        CommandMeta crackedMeta = commandManager.metaBuilder("cracked").build();
+        commandManager.register(crackedMeta, new CrackedCommand(this));
 
         // Start Survival server online status checking task (runs immediately, then every 5 minutes)
         checkSurvivalStatus();
@@ -291,5 +300,25 @@ public class NaturalAuthVelocity {
         int rounds = config.getTable("settings").getLong("bcrypt-rounds", 10L).intValue();
         String hash = BCrypt.hashpw(password, BCrypt.gensalt(rounds));
         return databaseManager.registerUser(uuid, username, hash);
+    }
+
+    public java.util.concurrent.CompletableFuture<Boolean> isPremiumMojangName(String username) {
+        if (username == null || !username.matches("^[a-zA-Z0-9_]{3,16}$")) {
+            return java.util.concurrent.CompletableFuture.completedFuture(false);
+        }
+        
+        String url = "https://api.mojang.com/users/profiles/minecraft/" + username;
+        java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                .uri(java.net.URI.create(url))
+                .timeout(java.time.Duration.ofSeconds(3))
+                .GET()
+                .build();
+                
+        return httpClient.sendAsync(request, java.net.http.HttpResponse.BodyHandlers.discarding())
+                .thenApply(response -> response.statusCode() == 200)
+                .exceptionally(ex -> {
+                    logger.error("Failed to check Mojang API for username: " + username, ex);
+                    return false;
+                });
     }
 }

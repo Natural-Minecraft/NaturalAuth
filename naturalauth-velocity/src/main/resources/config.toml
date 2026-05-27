@@ -21,6 +21,10 @@ session-expiry-hours = 24
 bcrypt-rounds = 10
 # Allow auto-login (session remember-me feature)
 auto-login = true
+# Auto-detect premium players via Mojang API on their first join
+auto-detect-premium = true
+# Bypass login/registration for Bedrock/Geyser/Floodgate players
+bypass-bedrock-passwords = true
 
 [rules]
 # Set to true to show server rules screen before player can enter the main server
@@ -46,4 +50,9 @@ accept-button = "I Accept"
 [messages]
 # Message sent to player when they logout successfully and are kicked
 logout-success = "&aAnda telah berhasil logout.\n&7Silakan masuk kembali untuk login ulang."
+# Message sent when player toggles premium mode on
+premium-enabled = "&aFitur Premium diaktifkan! Silakan join kembali menggunakan launcher original Anda secara aman."
+# Message sent when player toggles premium mode off (returns to cracked mode)
+cracked-enabled = "&aFitur Cracked diaktifkan! Silakan masuk kembali dan gunakan password Anda."
+
 

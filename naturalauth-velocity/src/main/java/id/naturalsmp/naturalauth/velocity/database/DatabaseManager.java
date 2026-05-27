@@ -48,12 +48,13 @@ public class DatabaseManager {
 
     private void createTables() {
         try (Connection conn = dataSource.getConnection(); Statement stmt = conn.createStatement()) {
-            // Users table — includes rules_accepted column
+            // Users table — includes rules_accepted and premium columns
             stmt.executeUpdate("CREATE TABLE IF NOT EXISTS " + usersTable + " (" +
                     "uuid VARCHAR(36) PRIMARY KEY, " +
                     "username VARCHAR(16) NOT NULL UNIQUE, " +
                     "password_hash VARCHAR(60) NOT NULL, " +
                     "rules_accepted TINYINT NOT NULL DEFAULT 0, " +
+                    "premium TINYINT NOT NULL DEFAULT 0, " +
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                     ")");
 
@@ -72,18 +73,30 @@ public class DatabaseManager {
     }
 
     /**
-     * Runs schema migrations for servers that already have the old table without rules_accepted.
+     * Runs schema migrations for servers that already have older table structures.
      */
     private void runMigrations() {
         try (Connection conn = dataSource.getConnection()) {
-            // Check if rules_accepted column exists; add it if missing (migration for existing installs)
             DatabaseMetaData meta = conn.getMetaData();
+            
+            // Check rules_accepted column; add it if missing
             try (ResultSet columns = meta.getColumns(null, null, usersTable, "rules_accepted")) {
                 if (!columns.next()) {
                     try (Statement stmt = conn.createStatement()) {
                         stmt.executeUpdate("ALTER TABLE " + usersTable +
                                 " ADD COLUMN rules_accepted TINYINT NOT NULL DEFAULT 0 AFTER password_hash");
                         logger.info("Migration: added rules_accepted column to " + usersTable);
+                    }
+                }
+            }
+
+            // Check premium column; add it if missing
+            try (ResultSet columns = meta.getColumns(null, null, usersTable, "premium")) {
+                if (!columns.next()) {
+                    try (Statement stmt = conn.createStatement()) {
+                        stmt.executeUpdate("ALTER TABLE " + usersTable +
+                                " ADD COLUMN premium TINYINT NOT NULL DEFAULT 0 AFTER rules_accepted");
+                        logger.info("Migration: added premium column to " + usersTable);
                     }
                 }
             }
@@ -241,5 +254,29 @@ public class DatabaseManager {
             logger.error("Error getting session token for UUID: " + uuid, e);
         }
         return null;
+    }
+
+    public boolean isPremium(String username) {
+        String query = "SELECT premium FROM " + usersTable + " WHERE LOWER(username) = ?";
+        try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, username.toLowerCase());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt("premium") == 1;
+            }
+        } catch (SQLException e) {
+            logger.error("Error checking premium status for: " + username, e);
+        }
+        return false;
+    }
+
+    public void setPremium(UUID uuid, boolean premium) {
+        String query = "UPDATE " + usersTable + " SET premium = ? WHERE uuid = ?";
+        try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setInt(1, premium ? 1 : 0);
+            ps.setString(2, uuid.toString());
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Failed to set premium status for UUID: " + uuid, e);
+        }
     }
 }

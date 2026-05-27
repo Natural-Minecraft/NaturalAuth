@@ -1,10 +1,12 @@
 package id.naturalsmp.naturalauth.velocity.listener;
 
 import com.velocitypowered.api.event.Subscribe;
+import com.velocitypowered.api.event.EventTask;
 import com.velocitypowered.api.event.command.CommandExecuteEvent;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.connection.PluginMessageEvent;
 import com.velocitypowered.api.event.connection.PostLoginEvent;
+import com.velocitypowered.api.event.connection.PreLoginEvent;
 import com.velocitypowered.api.event.player.PlayerChatEvent;
 import com.velocitypowered.api.event.player.ServerPreConnectEvent;
 import com.velocitypowered.api.proxy.Player;
@@ -46,12 +48,82 @@ public class VelocityListener {
     }
 
     @Subscribe
+    public EventTask onPreLogin(PreLoginEvent event) {
+        String username = event.getUsername();
+        return EventTask.withContinuation(continuation -> {
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                try {
+                    boolean isRegistered = plugin.getDatabaseManager().isRegistered(username);
+                    if (isRegistered) {
+                        if (plugin.getDatabaseManager().isPremium(username)) {
+                            plugin.getLogger().info("Username " + username + " is registered as premium locally. Forcing Mojang authentication.");
+                            event.setResult(PreLoginEvent.PreLoginResult.forceOnlineMode());
+                        }
+                    } else {
+                        boolean autoDetect = true;
+                        if (plugin.getConfig() != null && plugin.getConfig().getTable("settings") != null) {
+                            Boolean ad = plugin.getConfig().getTable("settings").getBoolean("auto-detect-premium");
+                            if (ad != null) autoDetect = ad;
+                        }
+                        if (autoDetect) {
+                            // Non-registered username. Query Mojang API to see if this is a premium username.
+                            Boolean isPremium = plugin.isPremiumMojangName(username).join();
+                            if (isPremium) {
+                                plugin.getLogger().info("Username " + username + " is a premium Mojang account. Forcing Mojang authentication for new registration.");
+                                event.setResult(PreLoginEvent.PreLoginResult.forceOnlineMode());
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    plugin.getLogger().error("Error processing pre-login for username: " + username, e);
+                } finally {
+                    continuation.resume();
+                }
+            });
+        });
+    }
+
+    @Subscribe
     public void onPostLogin(PostLoginEvent event) {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
         String ip = player.getRemoteAddress().getAddress().getHostAddress();
 
         plugin.getLogger().info("Player " + player.getUsername() + " (" + ip + ") joined the proxy.");
+
+        // Check for Premium Java player bypass
+        if (player.isOnlineMode()) {
+            plugin.getLogger().info("Player " + player.getUsername() + " is connected in Premium mode. Bypassing login.");
+            boolean registered = plugin.getDatabaseManager().isRegistered(player.getUsername());
+            if (!registered) {
+                plugin.register(uuid, player.getUsername(), "PREMIUM_AUTO_" + UUID.randomUUID().toString());
+            }
+            plugin.getDatabaseManager().setPremium(uuid, true);
+            
+            // Bypass login form, proceed directly
+            player.sendMessage(Component.text("§a§l[!] §r§aLogin premium otomatis berhasil!"));
+            handlePasswordVerified(player);
+            return;
+        }
+
+        // Check for Bedrock/Floodgate player bypass
+        boolean bypassBedrock = true;
+        if (plugin.getConfig() != null && plugin.getConfig().getTable("settings") != null) {
+            Boolean bb = plugin.getConfig().getTable("settings").getBoolean("bypass-bedrock-passwords");
+            if (bb != null) bypassBedrock = bb;
+        }
+        if (bypassBedrock && FloodgateHelper.isFloodgatePlayer(uuid)) {
+            plugin.getLogger().info("Player " + player.getUsername() + " is a Bedrock player. Bypassing password login.");
+            boolean registered = plugin.getDatabaseManager().isRegistered(player.getUsername());
+            if (!registered) {
+                plugin.register(uuid, player.getUsername(), "BEDROCK_AUTO_" + UUID.randomUUID().toString());
+            }
+            
+            // Bypass login form, proceed directly
+            player.sendMessage(Component.text("§a§l[!] §r§aAutentikasi Bedrock berhasil (Bypass password)!"));
+            handlePasswordVerified(player);
+            return;
+        }
 
         // Check for Auto-Login via saved session
         if (plugin.getSessionManager().checkAutoLogin(uuid, ip)) {
