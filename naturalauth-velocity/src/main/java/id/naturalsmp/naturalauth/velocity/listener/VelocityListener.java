@@ -17,13 +17,20 @@ import id.naturalsmp.naturalauth.velocity.FloodgateHelper;
 import id.naturalsmp.naturalauth.velocity.BedrockAuthProvider;
 
 import java.io.*;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 public class VelocityListener {
 
     private final NaturalAuthVelocity plugin;
     private BedrockAuthProvider bedrockAuthProvider;
+
+    // Players that have a valid session and should be auto-redirected when Paper lobby is ready
+    private final Set<UUID> pendingAutoLoginPlayers = ConcurrentHashMap.newKeySet();
+    // Players that are pending rules but via session (auto-logged in, but rules not accepted)
+    private final Set<UUID> pendingAutoRulesPlayers = ConcurrentHashMap.newKeySet();
 
     public VelocityListener(NaturalAuthVelocity plugin) {
         this.plugin = plugin;
@@ -41,46 +48,36 @@ public class VelocityListener {
     @Subscribe
     public void onPostLogin(PostLoginEvent event) {
         Player player = event.getPlayer();
+        UUID uuid = player.getUniqueId();
         String ip = player.getRemoteAddress().getAddress().getHostAddress();
 
         plugin.getLogger().info("Player " + player.getUsername() + " (" + ip + ") joined the proxy.");
 
-        // Check for Auto-Login
-        if (plugin.getSessionManager().checkAutoLogin(player.getUniqueId(), ip)) {
+        // Check for Auto-Login via saved session
+        if (plugin.getSessionManager().checkAutoLogin(uuid, ip)) {
             // Check if player needs to accept rules even if session is active
             if (plugin.isRulesEnabled() && !plugin.getDatabaseManager().hasAcceptedRules(player.getUsername())) {
                 plugin.getLogger().info("Player " + player.getUsername() + " auto-logged in, but needs to accept rules.");
-                plugin.setAuthenticated(player.getUniqueId(), false);
-                plugin.setPendingRules(player.getUniqueId(), true);
-                plugin.getJoinTimes().put(player.getUniqueId(), System.currentTimeMillis());
-                
-                // Rules need to be accepted
-                plugin.getServer().getScheduler().buildTask(plugin, () -> {
-                    if (FloodgateHelper.isFloodgatePlayer(player.getUniqueId())) {
-                        if (bedrockAuthProvider != null) bedrockAuthProvider.openRulesForm(player);
-                    } else {
-                        sendOpenRulesToPaper(player);
-                    }
-                }).delay(1, TimeUnit.SECONDS).schedule();
+                plugin.setAuthenticated(uuid, false);
+                plugin.setPendingRules(uuid, true);
+                plugin.getJoinTimes().put(uuid, System.currentTimeMillis());
+                // Mark as pending auto rules — Paper PLAYER_READY will trigger rules form
+                pendingAutoRulesPlayers.add(uuid);
             } else {
-                plugin.getLogger().info("Player " + player.getUsername() + " auto-logged in via saved session.");
-                plugin.setAuthenticated(player.getUniqueId(), true);
-                player.sendMessage(Component.text("§aAuto-login berhasil (Sesi aktif)."));
-                
-                // Automatically redirect to success-target server after 2 seconds delay to allow safe lobby join first
-                plugin.getServer().getScheduler().buildTask(plugin, () -> {
-                    if (player.isActive()) {
-                        finalizeAuth(player);
-                    }
-                }).delay(2, TimeUnit.SECONDS).schedule();
+                plugin.getLogger().info("Player " + player.getUsername() + " has valid session — marking pendingAutoLogin.");
+                plugin.setAuthenticated(uuid, false); // Keep false until Paper confirms ready
+                plugin.getJoinTimes().put(uuid, System.currentTimeMillis());
+                // Mark as pending auto-login — Paper PLAYER_READY will trigger finalizeAuth directly
+                pendingAutoLoginPlayers.add(uuid);
+                player.sendMessage(Component.text("§aAuto-login berhasil (Sesi aktif). Menghubungkan ke server..."));
             }
         } else {
-            plugin.setAuthenticated(player.getUniqueId(), false);
-            plugin.getJoinTimes().put(player.getUniqueId(), System.currentTimeMillis());
-            
-            // Periodically check if player timed out without authenticating
+            plugin.setAuthenticated(uuid, false);
+            plugin.getJoinTimes().put(uuid, System.currentTimeMillis());
+
+            // Kick player if not authenticated within 60 seconds
             plugin.getServer().getScheduler().buildTask(plugin, () -> {
-                if (player.isActive() && !plugin.isAuthenticated(player.getUniqueId())) {
+                if (player.isActive() && !plugin.isAuthenticated(uuid)) {
                     player.disconnect(Component.text("§cWaktu login habis! (Batas 60 detik)"));
                 }
             }).delay(60, TimeUnit.SECONDS).schedule();
@@ -107,9 +104,12 @@ public class VelocityListener {
     @Subscribe
     public void onDisconnect(DisconnectEvent event) {
         Player player = event.getPlayer();
-        plugin.setAuthenticated(player.getUniqueId(), false);
-        plugin.setPendingRules(player.getUniqueId(), false);
-        plugin.getJoinTimes().remove(player.getUniqueId());
+        UUID uuid = player.getUniqueId();
+        plugin.setAuthenticated(uuid, false);
+        plugin.setPendingRules(uuid, false);
+        plugin.getJoinTimes().remove(uuid);
+        pendingAutoLoginPlayers.remove(uuid);
+        pendingAutoRulesPlayers.remove(uuid);
     }
 
     @Subscribe
@@ -163,10 +163,26 @@ public class VelocityListener {
                 UUID uuid = UUID.fromString(dis.readUTF());
                 plugin.getLogger().info("[NaturalAuth-Debug] PACKET_PLAYER_READY uuid: " + uuid);
                 plugin.getServer().getPlayer(uuid).ifPresent(player -> {
-                    plugin.getLogger().info("[NaturalAuth-Debug] PACKET_PLAYER_READY found player: " + player.getUsername() + ", auth: " + plugin.isAuthenticated(uuid));
-                    if (!plugin.isAuthenticated(uuid)) {
+                    plugin.getLogger().info("[NaturalAuth-Debug] PACKET_PLAYER_READY player: " + player.getUsername()
+                            + " | autoLogin=" + pendingAutoLoginPlayers.contains(uuid)
+                            + " | autoRules=" + pendingAutoRulesPlayers.contains(uuid)
+                            + " | auth=" + plugin.isAuthenticated(uuid));
+
+                    if (pendingAutoLoginPlayers.remove(uuid)) {
+                        // Player had a valid session — skip GUI, finalize auth directly
+                        plugin.getLogger().info("[NaturalAuth-Debug] Auto-login session confirmed for " + player.getUsername() + " — finalizing auth.");
+                        finalizeAuth(player);
+                    } else if (pendingAutoRulesPlayers.remove(uuid)) {
+                        // Player had valid session but rules not accepted yet
+                        plugin.getLogger().info("[NaturalAuth-Debug] Auto-rules pending for " + player.getUsername() + " — opening rules form.");
+                        if (FloodgateHelper.isFloodgatePlayer(uuid)) {
+                            if (bedrockAuthProvider != null) bedrockAuthProvider.openRulesForm(player);
+                        } else {
+                            sendOpenRulesToPaper(player);
+                        }
+                    } else if (!plugin.isAuthenticated(uuid)) {
                         if (plugin.isPendingRules(uuid)) {
-                            // Re-open rules screen if they are pending rules
+                            // Re-open rules screen if they are pending rules (e.g. after GUI close)
                             if (!FloodgateHelper.isFloodgatePlayer(uuid)) {
                                 sendOpenRulesToPaper(player);
                             }
@@ -276,26 +292,31 @@ public class VelocityListener {
 
         plugin.setPendingRules(uuid, false);
         plugin.setAuthenticated(uuid, true);
-        
+
         // Save Session
         plugin.getSessionManager().createSession(uuid, ip);
 
         // Tell Paper auth was successful (closes GUI if any)
         sendAuthStatusToPaper(player, true, "Success");
 
-        // Redirect to success-target server
+        // Redirect to success-target server after a small delay so the PACKET_AUTH_STATUS
+        // plugin message is fully delivered & processed by Paper before the player transfers.
         String destinationName = plugin.getConfig().getTable("servers").getString("success-target", "survival");
-        if (plugin.isSurvivalOnline()) {
-            plugin.getServer().getServer(destinationName).ifPresentOrElse(
-                    server -> {
-                        plugin.getLogger().info("Redirecting player " + player.getUsername() + " to " + destinationName);
-                        player.createConnectionRequest(server).fireAndForget();
-                    },
-                    () -> plugin.getLogger().error("Target server '" + destinationName + "' not found!")
-            );
-        } else {
-            player.sendMessage(Component.text("§c§l[!] §r§cServer Survival saat ini sedang offline. Anda tetap berada di Lobby dan akan dialihkan secara otomatis begitu server online (status dicek berkala setiap 5 menit)."));
-        }
+        plugin.getServer().getServer(destinationName).ifPresentOrElse(
+                targetServer -> {
+                    plugin.getLogger().info("Scheduling redirect for " + player.getUsername() + " to " + destinationName + " in 500ms.");
+                    plugin.getServer().getScheduler().buildTask(plugin, () -> {
+                        if (player.isActive()) {
+                            plugin.getLogger().info("Redirecting player " + player.getUsername() + " to " + destinationName);
+                            player.createConnectionRequest(targetServer).fireAndForget();
+                        }
+                    }).delay(500, java.util.concurrent.TimeUnit.MILLISECONDS).schedule();
+                },
+                () -> {
+                    plugin.getLogger().error("Target server '" + destinationName + "' not found in Velocity config! Player " + player.getUsername() + " will remain in lobby.");
+                    player.sendMessage(Component.text("§c§l[!] §r§cServer tujuan tidak ditemukan. Silakan hubungi admin."));
+                }
+        );
     }
 
 
