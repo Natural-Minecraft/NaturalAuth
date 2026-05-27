@@ -164,8 +164,11 @@ public class PaperListener implements Listener, PluginMessageListener {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
         if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
-            String message = event.getMessage().toLowerCase();
-            if (message.startsWith("/naturalauth ") || message.startsWith("/na ") || message.equals("/naturalauth") || message.equals("/na")) {
+            String message = event.getMessage().toLowerCase().trim();
+            if (message.startsWith("/naturalauth ") || message.startsWith("naturalauth ") ||
+                message.startsWith("/na ") || message.startsWith("na ") ||
+                message.equals("/naturalauth") || message.equals("naturalauth") ||
+                message.equals("/na") || message.equals("na")) {
                 return;
             }
             event.setCancelled(true);

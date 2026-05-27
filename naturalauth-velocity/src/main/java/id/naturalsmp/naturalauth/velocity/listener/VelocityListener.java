@@ -122,6 +122,12 @@ public class VelocityListener {
     public void onCommandExecute(CommandExecuteEvent event) {
         if (event.getCommandSource() instanceof Player player) {
             if (!plugin.isAuthenticated(player.getUniqueId())) {
+                String cmdLine = event.getCommand().toLowerCase().trim();
+                if (cmdLine.startsWith("naturalauth ") || cmdLine.startsWith("na ") ||
+                    cmdLine.equals("naturalauth") || cmdLine.equals("na")) {
+                    return; // Allow the rule acceptance commands to bypass proxy block and reach Paper
+                }
+                
                 event.setResult(CommandExecuteEvent.CommandResult.denied());
                 if (plugin.isPendingRules(player.getUniqueId())) {
                     player.sendMessage(Component.text("§cAnda harus menyetujui peraturan server terlebih dahulu!"));
