@@ -27,7 +27,7 @@ jobs:
           cache: 'maven'
 
       - name: Build with Maven
-        run: mvn -B clean package
+        run: mvn -B -U clean package
 
       - name: Extract Project Info
         id: info
