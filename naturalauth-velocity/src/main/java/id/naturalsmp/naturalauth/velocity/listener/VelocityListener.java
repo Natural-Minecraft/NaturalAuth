@@ -304,6 +304,14 @@ public class VelocityListener {
                         player.disconnect(Component.text("§cAnda harus menyetujui peraturan untuk bermain!"));
                     }
                 });
+            } else if (packetId == AuthBridgeProtocol.PACKET_SUBMIT_EMAIL) {
+                UUID uuid = UUID.fromString(dis.readUTF());
+                String email = dis.readUTF();
+                plugin.getServer().getPlayer(uuid).ifPresent(player -> {
+                    if (!plugin.isAuthenticated(uuid)) {
+                        handleEmailSubmission(player, email);
+                    }
+                });
             }
 
         } catch (IOException e) {
@@ -340,8 +348,22 @@ public class VelocityListener {
             
             boolean success = plugin.register(uuid, player.getUsername(), password);
             if (success) {
-                player.sendMessage(Component.text("§aRegistrasi berhasil!"));
-                handlePasswordVerified(player);
+                player.sendMessage(Component.text("§a§lNaturalAuth §r§aRegistrasi berhasil!"));
+                
+                // Open Email Link Prompt
+                plugin.getServer().getScheduler().buildTask(plugin, () -> {
+                    if (player.isActive()) {
+                        if (FloodgateHelper.isFloodgatePlayer(uuid)) {
+                            if (bedrockAuthProvider != null) {
+                                bedrockAuthProvider.openEmailLinkForm(player);
+                            } else {
+                                handlePasswordVerified(player);
+                            }
+                        } else {
+                            sendOpenEmailLinkToPaper(player);
+                        }
+                    }
+                }).delay(500, TimeUnit.MILLISECONDS).schedule();
             } else {
                 sendAuthStatusToPaper(player, false, "Registrasi gagal, coba lagi!");
             }
@@ -459,5 +481,30 @@ public class VelocityListener {
         player.getCurrentServer().ifPresent(serverConnection -> {
             serverConnection.sendPluginMessage(NaturalAuthVelocity.BRIDGE_CHANNEL, data);
         });
+    }
+
+    private void handleEmailSubmission(Player player, String email) {
+        UUID uuid = player.getUniqueId();
+        if (email != null && !email.trim().isEmpty()) {
+            plugin.getDatabaseManager().setEmail(uuid, email);
+            player.sendMessage(Component.text("§a§lNaturalAuth §r§aEmail berhasil dikaitkan ke akun Anda!"));
+        } else {
+            player.sendMessage(Component.text("§e§lNaturalAuth §r§eEmail dilewati. Anda bisa mengaitkannya nanti jika perlu."));
+        }
+        handlePasswordVerified(player);
+    }
+
+    private void sendOpenEmailLinkToPaper(Player player) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             DataOutputStream dos = new DataOutputStream(baos)) {
+
+            plugin.getLogger().info("[NaturalAuth-Debug] Sending PACKET_OPEN_EMAIL_LINK to Paper for player: " + player.getUsername());
+            dos.writeByte(AuthBridgeProtocol.PACKET_OPEN_EMAIL_LINK);
+            dos.writeUTF(player.getUniqueId().toString());
+
+            sendPluginMessage(player, baos.toByteArray());
+        } catch (IOException e) {
+            plugin.getLogger().error("Failed to construct PACKET_OPEN_EMAIL_LINK", e);
+        }
     }
 }

@@ -172,6 +172,49 @@ public class BedrockFormHelper implements BedrockAuthProvider {
         }).delay(1, TimeUnit.SECONDS).schedule();
     }
 
+    @Override
+    public void openEmailLinkForm(Player player) {
+        UUID uuid = player.getUniqueId();
+        
+        CustomForm form = CustomForm.builder()
+                .title("Kaitkan Email \u2709")
+                .input("Registrasi Berhasil!\n\n§eMengaitkan email sangat direkomendasikan agar:\n§f1. Bisa reset password mandiri via web jika lupa.\n§f2. Bisa ganti email/password tanpa hubungi Admin.\n\n§7Masukkan alamat email Anda:", "contoh@email.com")
+                .toggle("§7Lewati pengaitan email (Tidak disarankan)", false)
+                .validResultHandler(response -> {
+                    boolean skip = response.getToggle(1);
+                    if (skip) {
+                        player.sendMessage(Component.text("§e§lNaturalAuth §r§eEmail dilewati. Anda bisa mengaitkannya nanti jika perlu."));
+                        listener.handlePasswordVerified(player);
+                        return;
+                    }
+
+                    String email = response.getInput(0);
+                    if (email == null || email.trim().isEmpty() || !email.contains("@")) {
+                        openBedrockErrorForm(player, "Email Tidak Valid", "Format email tidak valid!", () -> openEmailLinkForm(player));
+                        return;
+                    }
+
+                    plugin.getDatabaseManager().setEmail(uuid, email);
+                    player.sendMessage(Component.text("§a§lNaturalAuth §r§aEmail berhasil dikaitkan ke akun Anda!"));
+                    listener.handlePasswordVerified(player);
+                })
+                .closedResultHandler(() -> {
+                    player.sendMessage(Component.text("§e§lNaturalAuth §r§eEmail dilewati. Anda bisa mengaitkannya nanti jika perlu."));
+                    listener.handlePasswordVerified(player);
+                })
+                .build();
+        sendForm(uuid, form);
+    }
+
+    @Override
+    public void reopenEmailLinkFormDelayed(Player player) {
+        plugin.getServer().getScheduler().buildTask(plugin, () -> {
+            if (player.isActive() && !plugin.isAuthenticated(player.getUniqueId())) {
+                openEmailLinkForm(player);
+            }
+        }).delay(1, TimeUnit.SECONDS).schedule();
+    }
+
     private void sendForm(UUID uuid, org.geysermc.cumulus.form.Form form) {
         try {
             FloodgateApi.getInstance().sendForm(uuid, form);

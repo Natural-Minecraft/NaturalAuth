@@ -267,4 +267,73 @@ public class DialogRenderer {
             e.printStackTrace();
         }
     }
+
+    public static void openEmailLinkDialog(NaturalAuthPaper plugin, Player player) {
+        TextDialogInput emailInput = DialogInput.text(
+                "email",
+                200,
+                Component.text("Alamat Email Anda"),
+                true,
+                "",
+                72,
+                null
+        );
+
+        ActionButton submitButton = ActionButton.builder(Component.text("Kaitkan"))
+                .action(DialogAction.customClick((response, audience) -> {
+                    String email = response.getText("email");
+                    if (email == null || email.trim().isEmpty() || !email.contains("@")) {
+                        audience.closeDialog();
+                        openErrorDialog(plugin, player, "Kaitkan Email", "Format email tidak valid!", () -> {
+                            openEmailLinkDialog(plugin, player);
+                        });
+                        return;
+                    }
+
+                    audience.closeDialog();
+                    submitEmailToVelocity(plugin, player, email);
+                }, ClickCallback.Options.builder().build()))
+                .build();
+
+        ActionButton skipButton = ActionButton.builder(Component.text("Lewati"))
+                .action(DialogAction.customClick((response, audience) -> {
+                    audience.closeDialog();
+                    submitEmailToVelocity(plugin, player, ""); // Send empty email to complete registration
+                }, ClickCallback.Options.builder().build()))
+                .build();
+
+        Dialog dialog = Dialog.create(builder -> builder.empty()
+                .base(DialogBase.builder(Component.text("Kaitkan Email"))
+                        .canCloseWithEscape(false)
+                        .body(List.of(
+                                DialogBody.plainMessage(Component.text("§a§l✔ REGISTRASI BERHASIL!")),
+                                DialogBody.plainMessage(Component.text("")),
+                                DialogBody.plainMessage(Component.text("§eMengaitkan email sangat direkomendasikan agar:")),
+                                DialogBody.plainMessage(Component.text("§f1. Bisa reset password mandiri via web jika lupa.")),
+                                DialogBody.plainMessage(Component.text("§f2. Bisa ganti email/password tanpa hubungi Admin.")),
+                                DialogBody.plainMessage(Component.text("")),
+                                DialogBody.plainMessage(Component.text("§7Masukkan email Anda di bawah untuk mengaitkan:"))
+                        ))
+                        .inputs(List.of(emailInput))
+                        .build())
+                .type(DialogType.confirmation(submitButton, skipButton))
+        );
+
+        player.showDialog(dialog);
+    }
+
+    private static void submitEmailToVelocity(NaturalAuthPaper plugin, Player player, String email) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             DataOutputStream dos = new DataOutputStream(baos)) {
+
+            dos.writeByte(AuthBridgeProtocol.PACKET_SUBMIT_EMAIL);
+            dos.writeUTF(player.getUniqueId().toString());
+            dos.writeUTF(email);
+
+            player.sendPluginMessage(plugin, AuthBridgeProtocol.FULL_CHANNEL, baos.toByteArray());
+        } catch (IOException e) {
+            plugin.getLogger().severe("Failed to send PACKET_SUBMIT_EMAIL to Velocity!");
+            e.printStackTrace();
+        }
+    }
 }

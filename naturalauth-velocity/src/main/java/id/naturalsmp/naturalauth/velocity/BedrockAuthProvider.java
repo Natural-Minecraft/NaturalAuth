@@ -11,6 +11,8 @@ import com.velocitypowered.api.proxy.Player;
 public interface BedrockAuthProvider {
     void openAuthForm(Player player, boolean registered);
     void openRulesForm(Player player);
+    void openEmailLinkForm(Player player);
     void reopenAuthFormDelayed(Player player, boolean registered);
     void reopenRulesFormDelayed(Player player);
+    void reopenEmailLinkFormDelayed(Player player);
 }

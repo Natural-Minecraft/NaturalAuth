@@ -48,13 +48,15 @@ public class DatabaseManager {
 
     private void createTables() {
         try (Connection conn = dataSource.getConnection(); Statement stmt = conn.createStatement()) {
-            // Users table — includes rules_accepted and premium columns
+            // Users table — includes rules_accepted, premium, email, and phone_number columns
             stmt.executeUpdate("CREATE TABLE IF NOT EXISTS " + usersTable + " (" +
                     "uuid VARCHAR(36) PRIMARY KEY, " +
                     "username VARCHAR(16) NOT NULL UNIQUE, " +
                     "password_hash VARCHAR(60) NOT NULL, " +
                     "rules_accepted TINYINT NOT NULL DEFAULT 0, " +
                     "premium TINYINT NOT NULL DEFAULT 0, " +
+                    "email VARCHAR(255) DEFAULT NULL, " +
+                    "phone_number VARCHAR(20) DEFAULT NULL, " +
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                     ")");
 
@@ -98,6 +100,45 @@ public class DatabaseManager {
                                 " ADD COLUMN premium TINYINT NOT NULL DEFAULT 0 AFTER rules_accepted");
                         logger.info("Migration: added premium column to " + usersTable);
                     }
+                }
+            }
+
+            // Check email column; add it if missing
+            try (ResultSet columns = meta.getColumns(null, null, usersTable, "email")) {
+                if (!columns.next()) {
+                    try (Statement stmt = conn.createStatement()) {
+                        stmt.executeUpdate("ALTER TABLE " + usersTable +
+                                " ADD COLUMN email VARCHAR(255) DEFAULT NULL AFTER premium");
+                        logger.info("Migration: added email column to " + usersTable);
+                    }
+                }
+            }
+
+            // Check phone_number column; add it if missing
+            try (ResultSet columns = meta.getColumns(null, null, usersTable, "phone_number")) {
+                if (!columns.next()) {
+                    try (Statement stmt = conn.createStatement()) {
+                        stmt.executeUpdate("ALTER TABLE " + usersTable +
+                                " ADD COLUMN phone_number VARCHAR(20) DEFAULT NULL AFTER email");
+                        logger.info("Migration: added phone_number column to " + usersTable);
+                    }
+                }
+            }
+
+            // Check idx_email index; add it if missing
+            boolean hasEmailIndex = false;
+            try (ResultSet indexInfo = meta.getIndexInfo(null, null, usersTable, false, false)) {
+                while (indexInfo.next()) {
+                    if ("idx_email".equalsIgnoreCase(indexInfo.getString("INDEX_NAME"))) {
+                        hasEmailIndex = true;
+                        break;
+                    }
+                }
+            }
+            if (!hasEmailIndex) {
+                try (Statement stmt = conn.createStatement()) {
+                    stmt.executeUpdate("CREATE INDEX idx_email ON " + usersTable + " (email)");
+                    logger.info("Migration: created index idx_email on " + usersTable);
                 }
             }
         } catch (SQLException e) {
@@ -277,6 +318,62 @@ public class DatabaseManager {
             ps.executeUpdate();
         } catch (SQLException e) {
             logger.error("Failed to set premium status for UUID: " + uuid, e);
+        }
+    }
+
+    public String getEmail(UUID uuid) {
+        String query = "SELECT email FROM " + usersTable + " WHERE uuid = ?";
+        try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, uuid.toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getString("email");
+            }
+        } catch (SQLException e) {
+            logger.error("Failed to get email for UUID: " + uuid, e);
+        }
+        return null;
+    }
+
+    public void setEmail(UUID uuid, String email) {
+        String query = "UPDATE " + usersTable + " SET email = ? WHERE uuid = ?";
+        try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(query)) {
+            if (email == null || email.trim().isEmpty()) {
+                ps.setNull(1, Types.VARCHAR);
+            } else {
+                ps.setString(1, email.trim());
+            }
+            ps.setString(2, uuid.toString());
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Failed to set email for UUID: " + uuid, e);
+        }
+    }
+
+    public String getPhoneNumber(UUID uuid) {
+        String query = "SELECT phone_number FROM " + usersTable + " WHERE uuid = ?";
+        try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, uuid.toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getString("phone_number");
+            }
+        } catch (SQLException e) {
+            logger.error("Failed to get phone number for UUID: " + uuid, e);
+        }
+        return null;
+    }
+
+    public void setPhoneNumber(UUID uuid, String phone) {
+        String query = "UPDATE " + usersTable + " SET phone_number = ? WHERE uuid = ?";
+        try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(query)) {
+            if (phone == null || phone.trim().isEmpty()) {
+                ps.setNull(1, Types.VARCHAR);
+            } else {
+                ps.setString(1, phone.trim());
+            }
+            ps.setString(2, uuid.toString());
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Failed to set phone number for UUID: " + uuid, e);
         }
     }
 }

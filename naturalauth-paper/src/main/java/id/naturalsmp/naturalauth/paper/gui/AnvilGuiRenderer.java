@@ -176,4 +176,53 @@ public class AnvilGuiRenderer {
             e.printStackTrace();
         }
     }
+
+    public static void openEmailLinkGUI(NaturalAuthPaper plugin, Player player) {
+        ItemStack itemLeft = new ItemStack(Material.PAPER);
+        ItemMeta meta = itemLeft.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName("Kaitkan Email:");
+            itemLeft.setItemMeta(meta);
+        }
+
+        new AnvilGUI.Builder()
+                .plugin(plugin)
+                .title("Kaitkan Email")
+                .text("contoh@email.com")
+                .itemLeft(itemLeft)
+                .onClick((slot, stateSnapshot) -> {
+                    if (slot != AnvilGUI.Slot.OUTPUT) {
+                        return Collections.emptyList();
+                    }
+
+                    String email = stateSnapshot.getText();
+                    if (email == null || email.trim().isEmpty() || email.equalsIgnoreCase("contoh@email.com") || !email.contains("@")) {
+                        player.sendMessage("§cFormat email tidak valid!");
+                        return Collections.singletonList(AnvilGUI.ResponseAction.replaceInputText("contoh@email.com"));
+                    }
+
+                    submitEmailToVelocity(plugin, player, email);
+                    return Arrays.asList(AnvilGUI.ResponseAction.close());
+                })
+                .onClose(stateSnapshot -> {
+                    // Closed means skipped, send empty email
+                    submitEmailToVelocity(plugin, player, "");
+                })
+                .open(player);
+    }
+
+    private static void submitEmailToVelocity(NaturalAuthPaper plugin, Player player, String email) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             DataOutputStream dos = new DataOutputStream(baos)) {
+
+            dos.writeByte(AuthBridgeProtocol.PACKET_SUBMIT_EMAIL);
+            dos.writeUTF(player.getUniqueId().toString());
+            dos.writeUTF(email);
+
+            player.sendPluginMessage(plugin, AuthBridgeProtocol.FULL_CHANNEL, baos.toByteArray());
+        } catch (IOException e) {
+            plugin.getLogger().severe("Failed to send PACKET_SUBMIT_EMAIL to Velocity!");
+            e.printStackTrace();
+        }
+    }
 }

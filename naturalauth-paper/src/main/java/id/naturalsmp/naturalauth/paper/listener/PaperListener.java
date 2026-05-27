@@ -119,6 +119,19 @@ public class PaperListener implements Listener, PluginMessageListener {
                         sendRulesChatMessage(target);
                     }
                 }
+            } else if (packetId == AuthBridgeProtocol.PACKET_OPEN_EMAIL_LINK) {
+                UUID uuid = UUID.fromString(dis.readUTF());
+                Player target = Bukkit.getPlayer(uuid);
+                if (target != null && target.isOnline()) {
+                    target.closeInventory();
+                    if (id.naturalsmp.naturalauth.paper.gui.DialogRenderer.isDialogApiAvailable()) {
+                        plugin.getLogger().info("[NaturalAuth-Debug] Opening Native Email Link Dialog for " + target.getName());
+                        id.naturalsmp.naturalauth.paper.gui.DialogRenderer.openEmailLinkDialog(plugin, target);
+                    } else {
+                        plugin.getLogger().info("[NaturalAuth-Debug] Opening Anvil GUI for Email Link for " + target.getName());
+                        AnvilGuiRenderer.openEmailLinkGUI(plugin, target);
+                    }
+                }
             }
 
         } catch (IOException e) {
