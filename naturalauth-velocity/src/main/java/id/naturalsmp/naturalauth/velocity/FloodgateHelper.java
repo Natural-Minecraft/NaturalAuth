@@ -20,7 +20,7 @@ public final class FloodgateHelper {
             // Also verify an instance actually exists (may be loaded but not initialized)
             org.geysermc.floodgate.api.FloodgateApi.getInstance();
             found = true;
-        } catch (ClassNotFoundException | NoClassDefFoundError | Exception ignored) {
+        } catch (Exception ignored) {
             // Floodgate not installed — this is fine
         }
         AVAILABLE = found;
