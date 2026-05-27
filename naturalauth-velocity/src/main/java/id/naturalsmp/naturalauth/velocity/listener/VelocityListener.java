@@ -110,7 +110,7 @@ public class VelocityListener {
 
     @Subscribe
     public void onCommandExecute(CommandExecuteEvent event) {
-        if (event.getSource() instanceof Player player) {
+        if (event.getCommandSource() instanceof Player player) {
             if (!plugin.isAuthenticated(player.getUniqueId())) {
                 event.setResult(CommandExecuteEvent.CommandResult.denied());
                 if (plugin.isPendingRules(player.getUniqueId())) {
@@ -256,13 +256,17 @@ public class VelocityListener {
 
         // Redirect to success-target server
         String destinationName = plugin.getConfig().getTable("servers").getString("success-target", "survival");
-        plugin.getServer().getServer(destinationName).ifPresentOrElse(
-                server -> {
-                    plugin.getLogger().info("Redirecting player " + player.getUsername() + " to " + destinationName);
-                    player.createConnectionRequest(server).fireAndForget();
-                },
-                () -> plugin.getLogger().error("Target server '" + destinationName + "' not found!")
-        );
+        if (plugin.isSurvivalOnline()) {
+            plugin.getServer().getServer(destinationName).ifPresentOrElse(
+                    server -> {
+                        plugin.getLogger().info("Redirecting player " + player.getUsername() + " to " + destinationName);
+                        player.createConnectionRequest(server).fireAndForget();
+                    },
+                    () -> plugin.getLogger().error("Target server '" + destinationName + "' not found!")
+            );
+        } else {
+            player.sendMessage(Component.text("§c§l[!] §r§cServer Survival saat ini sedang offline. Anda tetap berada di Lobby dan akan dialihkan secara otomatis begitu server online (status dicek berkala setiap 5 menit)."));
+        }
     }
 
     private void openBedrockAuthForm(Player player, boolean registered) {

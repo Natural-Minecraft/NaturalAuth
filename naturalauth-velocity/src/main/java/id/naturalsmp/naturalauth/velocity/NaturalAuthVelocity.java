@@ -14,6 +14,7 @@ import id.naturalsmp.naturalauth.common.AuthBridgeProtocol;
 import id.naturalsmp.naturalauth.velocity.database.DatabaseManager;
 import id.naturalsmp.naturalauth.velocity.listener.VelocityListener;
 import id.naturalsmp.naturalauth.velocity.session.SessionManager;
+import net.kyori.adventure.text.Component;
 import org.mindrot.jbcrypt.BCrypt;
 import org.slf4j.Logger;
 
@@ -27,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Plugin(
         id = "naturalauth",
@@ -56,6 +58,9 @@ public class NaturalAuthVelocity {
 
     // Tracks when unauthenticated players joined (for timeout enforcement)
     private final Map<UUID, Long> joinTimes = new ConcurrentHashMap<>();
+
+    // Keep track of the success target (Survival) server's online status
+    private boolean survivalOnline = true;
 
     @Inject
     public NaturalAuthVelocity(ProxyServer server, Logger logger, @DataDirectory Path dataDirectory) {
@@ -88,6 +93,12 @@ public class NaturalAuthVelocity {
 
         server.getChannelRegistrar().register(BRIDGE_CHANNEL);
         server.getEventManager().register(this, new VelocityListener(this));
+
+        // Start Survival server online status checking task (runs immediately, then every 5 minutes)
+        checkSurvivalStatus();
+        server.getScheduler().buildTask(this, this::checkSurvivalStatus)
+                .repeat(5, TimeUnit.MINUTES)
+                .schedule();
 
         logger.info("NaturalAuth Velocity Plugin has been initialized successfully!");
     }
@@ -154,6 +165,54 @@ public class NaturalAuthVelocity {
     public Toml getConfig() { return config; }
     public Set<UUID> getAuthenticatedPlayers() { return authenticatedPlayers; }
     public Map<UUID, Long> getJoinTimes() { return joinTimes; }
+
+    // ───── Survival Status Checking ──────────────────────────────────────────
+
+    public boolean isSurvivalOnline() {
+        return survivalOnline;
+    }
+
+    public void checkSurvivalStatus() {
+        String destinationName = config.getTable("servers").getString("success-target", "survival");
+        server.getServer(destinationName).ifPresentOrElse(
+                survival -> {
+                    survival.ping().handle((ping, throwable) -> {
+                        boolean online = (throwable == null && ping != null);
+                        if (online != survivalOnline) {
+                            survivalOnline = online;
+                            if (online) {
+                                logger.info("Server Survival (" + destinationName + ") is now ONLINE.");
+                                redirectAuthenticatedPlayers();
+                            } else {
+                                logger.warn("Server Survival (" + destinationName + ") is now OFFLINE. Connection attempts are paused (status pings scheduled every 5 minutes).");
+                            }
+                        }
+                        return null;
+                    });
+                },
+                () -> {
+                    survivalOnline = false;
+                }
+        );
+    }
+
+    private void redirectAuthenticatedPlayers() {
+        String lobbyName = config.getTable("servers").getString("lobby", "lobby");
+        String destinationName = config.getTable("servers").getString("success-target", "survival");
+        
+        server.getServer(destinationName).ifPresent(survival -> {
+            for (Player player : server.getAllPlayers()) {
+                if (isAuthenticated(player.getUniqueId())) {
+                    player.getCurrentServer().ifPresent(current -> {
+                        if (current.getServerInfo().getName().equalsIgnoreCase(lobbyName)) {
+                            player.sendMessage(Component.text("§a§l[!] §r§aServer Survival sudah online! Mengalihkan Anda secara otomatis..."));
+                            player.createConnectionRequest(survival).fireAndForget();
+                        }
+                    });
+                }
+            }
+        });
+    }
 
     // ───── Rules Config Helpers ──────────────────────────────────────────────
 
