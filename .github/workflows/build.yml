@@ -1,0 +1,39 @@
+name: Build Java Plugins
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: 'maven'
+
+    - name: Build with Maven
+      run: mvn -B clean package
+
+    - name: Upload Velocity Plugin Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: naturalauth-velocity
+        path: naturalauth-velocity/target/naturalauth-velocity-*.jar
+        if-no-files-found: error
+
+    - name: Upload Paper Companion Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: naturalauth-paper
+        path: naturalauth-paper/target/naturalauth-paper-*.jar
+        if-no-files-found: error
