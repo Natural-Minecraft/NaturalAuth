@@ -26,9 +26,16 @@ public class BedrockFormHelper implements BedrockAuthProvider {
         if (!registered) {
             CustomForm form = CustomForm.builder()
                     .title("Create Account \u26A0")
-                    .input("Welcome! Create a secure password below.\n\n§7Your password protects your progress.\n\n§fPassword:", "Min. 4 characters...")
+                    .input("Welcome! Create a secure password below.\n\n§7Your password protects your progress.\n\n§fPassword:", "Min. 6 characters...")
                     .input("Confirm Password:", "Repeat password...")
+                    .toggle("§cKeluar dari Server (Quit)", false)
                     .validResultHandler(response -> {
+                        boolean quit = response.getToggle(2);
+                        if (quit) {
+                            player.disconnect(Component.text("§cAnda memilih untuk keluar (Quit)."));
+                            return;
+                        }
+
                         String password = response.getInput(0);
                         String confirm = response.getInput(1);
                         
@@ -37,8 +44,8 @@ public class BedrockFormHelper implements BedrockAuthProvider {
                             return;
                         }
                         
-                        if (password.length() < 4) {
-                            openBedrockErrorForm(player, "Registrasi Gagal", "Password minimal 4 karakter!", () -> openAuthForm(player, false));
+                        if (password.length() < 6) {
+                            openBedrockErrorForm(player, "Registrasi Gagal", "Password minimal 6 karakter!", () -> openAuthForm(player, false));
                             return;
                         }
                         
@@ -64,7 +71,14 @@ public class BedrockFormHelper implements BedrockAuthProvider {
                     .title("Welcome Back! \u26A0")
                     .input("Please enter your password to continue.\n\n§7If you forgot your password, toggle below.\n\n§fPassword:", "Enter your password...")
                     .toggle("§eSaya Lupa Password (Buka Link Reset)", false)
+                    .toggle("§cKeluar dari Server (Quit)", false)
                     .validResultHandler(response -> {
+                        boolean quit = response.getToggle(2);
+                        if (quit) {
+                            player.disconnect(Component.text("§cAnda memilih untuk keluar (Quit)."));
+                            return;
+                        }
+
                         boolean forgot = response.getToggle(1);
                         if (forgot) {
                             player.sendMessage(Component.text("§8§m──────────────────────────────────"));

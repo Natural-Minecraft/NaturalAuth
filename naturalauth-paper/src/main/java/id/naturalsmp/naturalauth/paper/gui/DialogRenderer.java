@@ -89,6 +89,13 @@ public class DialogRenderer {
                 }, ClickCallback.Options.builder().build()))
                 .build();
 
+        ActionButton quitButton = ActionButton.builder(Component.text("Quit / Keluar"))
+                .action(DialogAction.customClick((response, audience) -> {
+                    audience.closeDialog();
+                    player.kick(Component.text("§cAnda memilih untuk keluar (Quit)."));
+                }, ClickCallback.Options.builder().build()))
+                .build();
+
         Dialog dialog = Dialog.create(builder -> builder.empty()
                 .base(DialogBase.builder(Component.text("Login"))
                         .canCloseWithEscape(false)
@@ -97,7 +104,7 @@ public class DialogRenderer {
                         ))
                         .inputs(List.of(passwordInput))
                         .build())
-                .type(DialogType.confirmation(signInButton, forgotPasswordButton))
+                .type(DialogType.multiAction(List.of(signInButton, forgotPasswordButton), quitButton, 2))
         );
 
         player.showDialog(dialog);
@@ -150,6 +157,13 @@ public class DialogRenderer {
                 }, ClickCallback.Options.builder().build()))
                 .build();
 
+        ActionButton quitButton = ActionButton.builder(Component.text("Quit / Keluar"))
+                .action(DialogAction.customClick((response, audience) -> {
+                    audience.closeDialog();
+                    player.kick(Component.text("§cAnda memilih untuk keluar (Quit)."));
+                }, ClickCallback.Options.builder().build()))
+                .build();
+
         Dialog dialog = Dialog.create(builder -> builder.empty()
                 .base(DialogBase.builder(Component.text("Register"))
                         .canCloseWithEscape(false)
@@ -158,7 +172,7 @@ public class DialogRenderer {
                         ))
                         .inputs(List.of(passwordInput, confirmInput))
                         .build())
-                .type(DialogType.notice(registerButton))
+                .type(DialogType.multiAction(List.of(registerButton), quitButton, 1))
         );
 
         player.showDialog(dialog);

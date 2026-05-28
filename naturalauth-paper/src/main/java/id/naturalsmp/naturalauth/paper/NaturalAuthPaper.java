@@ -25,6 +25,11 @@ public class NaturalAuthPaper extends JavaPlugin {
     private Location spawnLocation;
     private Location schematicPasteLocation;
     private boolean enableSchematicLoading;
+    private boolean lobbyMode;
+
+    public boolean isLobbyMode() {
+        return lobbyMode;
+    }
 
     @Override
     public void onEnable() {
@@ -129,7 +134,8 @@ public class NaturalAuthPaper extends JavaPlugin {
     }
 
     private void loadConfigValues() {
-        enableSchematicLoading = getConfig().getBoolean("enable-schematic-loading", true);
+        lobbyMode = getConfig().getBoolean("lobby-mode", true);
+        enableSchematicLoading = lobbyMode && getConfig().getBoolean("enable-schematic-loading", true);
 
         // Read spawn location
         String spawnWorldName = getConfig().getString("spawn-location.world", "world");

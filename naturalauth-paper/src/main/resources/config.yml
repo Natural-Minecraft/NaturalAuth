@@ -1,5 +1,9 @@
 # NaturalAuth Configuration for Paper (Lobby Server)
 
+# Set this to true ONLY on the Lobby/Auth server.
+# On other servers (like School or Survival), set this to false to disable player blocking, teleportation, and automatic GUIs.
+lobby-mode: true
+
 # Schematic / Structure settings
 # If true, the plugin will load and paste the lobby.nbt structure at startup
 enable-schematic-loading: true

@@ -194,6 +194,12 @@ public class PaperListener implements Listener, PluginMessageListener {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
         
+        if (!plugin.isLobbyMode()) {
+            plugin.setAuthenticated(uuid, true);
+            plugin.setPendingRules(uuid, false);
+            return;
+        }
+
         plugin.setAuthenticated(uuid, false);
         plugin.setPendingRules(uuid, false);
         AnvilGuiRenderer.clearTempPassword(uuid);
