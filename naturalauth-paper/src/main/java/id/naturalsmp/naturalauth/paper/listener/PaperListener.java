@@ -32,6 +32,12 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.Material;
 import org.bukkit.inventory.meta.ItemMeta;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.title.Title;
+import java.time.Duration;
+import org.bukkit.Sound;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
+import org.bukkit.boss.BossBar;
 
 public class PaperListener implements Listener, PluginMessageListener {
 
@@ -42,6 +48,12 @@ public class PaperListener implements Listener, PluginMessageListener {
     private final Map<UUID, String> activePrompt = new ConcurrentHashMap<>();
     // Track admins who have a read-only Whois chest GUI open
     private final java.util.Set<UUID> whoisAdmins = ConcurrentHashMap.newKeySet();
+
+    // ── Auth UI (BossBar + ActionBar) ───────────────────────────────────────
+    private final Map<UUID, BossBar> bossBars = new ConcurrentHashMap<>();
+    private final Map<UUID, Integer> actionBarTaskIds = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> loginStartTimes = new ConcurrentHashMap<>();
+    private static final int LOGIN_TIMEOUT_SECONDS = 60;
 
     public PaperListener(NaturalAuthPaper plugin) {
         this.plugin = plugin;
@@ -88,12 +100,22 @@ public class PaperListener implements Listener, PluginMessageListener {
                         plugin.setPendingRules(uuid, false);
                         activeGuiType.remove(uuid);
                         activePrompt.remove(uuid);
+                        stopAuthUI(uuid);
                         target.sendMessage("§a§lNaturalAuth §r§aLogin berhasil!");
                         target.closeInventory();
+                        // Title & Sound
+                        target.showTitle(Title.title(
+                            Component.text("§a✔ Login Berhasil!"),
+                            Component.text("§7Selamat datang kembali, §f" + target.getName() + "§7!"),
+                            Title.Times.times(Duration.ofMillis(200), Duration.ofMillis(2500), Duration.ofMillis(500))
+                        ));
+                        target.playSound(target.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.2f);
                     } else {
                         target.sendMessage("§c§lNaturalAuth §r§c" + msg);
                         // Update prompt so the reopened GUI displays the error
                         activePrompt.put(uuid, msg);
+                        // Sound feedback for wrong password
+                        target.playSound(target.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8f, 0.9f);
 
                         if (id.naturalsmp.naturalauth.paper.gui.DialogRenderer.isDialogApiAvailable()) {
                             String type = activeGuiType.get(uuid);
@@ -185,6 +207,13 @@ public class PaperListener implements Listener, PluginMessageListener {
                 sendPlayerReady(player);
             }
         }, 10L); // Wait 0.5 seconds for client to load
+
+        // Start BossBar + ActionBar auth UI after 2 seconds (allows auto-login to complete first)
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (player.isOnline() && !plugin.isAuthenticated(uuid) && !plugin.isPendingRules(uuid)) {
+                startAuthUI(player);
+            }
+        }, 40L);
     }
 
     @EventHandler
@@ -195,6 +224,7 @@ public class PaperListener implements Listener, PluginMessageListener {
         activeGuiType.remove(uuid);
         activePrompt.remove(uuid);
         AnvilGuiRenderer.clearTempPassword(uuid);
+        stopAuthUI(uuid);
     }
 
     // Block player actions when not authenticated or pending rules
@@ -369,6 +399,75 @@ public class PaperListener implements Listener, PluginMessageListener {
             plugin.getLogger().severe("Failed to send PACKET_RULES_DECLINED to Velocity!");
             e.printStackTrace();
         }
+    }
+
+    private void startAuthUI(Player player) {
+        UUID uuid = player.getUniqueId();
+        if (plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) return;
+
+        loginStartTimes.put(uuid, System.currentTimeMillis());
+
+        // Create BossBar
+        BossBar bossBar = Bukkit.createBossBar(
+            "§a§l⏱ Login §8| §f" + LOGIN_TIMEOUT_SECONDS + " §adetik tersisa",
+            BarColor.GREEN,
+            BarStyle.SOLID
+        );
+        bossBar.addPlayer(player);
+        bossBar.setProgress(1.0);
+        bossBars.put(uuid, bossBar);
+
+        // Start a task that ticks every second to update BossBar + ActionBar
+        int taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
+            if (!player.isOnline() || plugin.isAuthenticated(uuid)) {
+                stopAuthUI(uuid);
+                return;
+            }
+            long elapsedSeconds = (System.currentTimeMillis() - loginStartTimes.getOrDefault(uuid, System.currentTimeMillis())) / 1000;
+            int remaining = (int) Math.max(0, LOGIN_TIMEOUT_SECONDS - elapsedSeconds);
+            double progress = remaining / (double) LOGIN_TIMEOUT_SECONDS;
+
+            BossBar bar = bossBars.get(uuid);
+            if (bar != null) {
+                String timeColor;
+                BarColor barColor;
+                if (remaining <= 10) {
+                    timeColor = "§c";
+                    barColor = BarColor.RED;
+                } else if (remaining <= 20) {
+                    timeColor = "§e";
+                    barColor = BarColor.YELLOW;
+                } else {
+                    timeColor = "§a";
+                    barColor = BarColor.GREEN;
+                }
+                bar.setTitle("§e§l⏱ Login §8| " + timeColor + remaining + " §edetik tersisa");
+                bar.setProgress(Math.max(0.0, Math.min(1.0, progress)));
+                bar.setColor(barColor);
+            }
+
+            // Alternate ActionBar hints every 4 seconds
+            boolean alternate = (elapsedSeconds % 8) >= 4;
+            String hint = alternate
+                ? "§7Belum punya akun? Gunakan §f/register§7 di chat"
+                : "§e🔑 Gunakan §fGUI §eyang muncul §eatau ketik §f/login <password>";
+            player.sendActionBar(Component.text(hint));
+
+        }, 0L, 20L);
+        actionBarTaskIds.put(uuid, taskId);
+    }
+
+    private void stopAuthUI(UUID uuid) {
+        BossBar bar = bossBars.remove(uuid);
+        if (bar != null) {
+            bar.removeAll();
+            bar.setVisible(false);
+        }
+        Integer taskId = actionBarTaskIds.remove(uuid);
+        if (taskId != null) {
+            Bukkit.getScheduler().cancelTask(taskId);
+        }
+        loginStartTimes.remove(uuid);
     }
 
     private void sendRulesChatMessage(Player player) {

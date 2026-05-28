@@ -29,7 +29,13 @@ public class ForgotPasswordCommand implements SimpleCommand {
             if (configUrl != null) baseUrl = configUrl;
         }
 
-        String url = baseUrl + "/forgot-password";
+        String encodedUsername;
+        try {
+            encodedUsername = java.net.URLEncoder.encode(player.getUsername(), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            encodedUsername = player.getUsername();
+        }
+        String url = baseUrl + "/forgot-password?username=" + encodedUsername;
 
         player.sendMessage(Component.text("§8§l========================================="));
         player.sendMessage(Component.text("§e§l🔑 Lupa Kata Sandi / Forgot Password"));

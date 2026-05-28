@@ -19,6 +19,7 @@ import id.naturalsmp.naturalauth.velocity.FloodgateHelper;
 import id.naturalsmp.naturalauth.velocity.BedrockAuthProvider;
 
 import java.io.*;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,6 +34,14 @@ public class VelocityListener {
     private final Set<UUID> pendingAutoLoginPlayers = ConcurrentHashMap.newKeySet();
     // Players that are pending rules but via session (auto-logged in, but rules not accepted)
     private final Set<UUID> pendingAutoRulesPlayers = ConcurrentHashMap.newKeySet();
+
+    // ── Brute Force Protection ───────────────────────────────────────────────
+    private final Map<UUID, Integer> loginAttempts = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> loginCooldowns = new ConcurrentHashMap<>();
+    private static final int MAX_LOGIN_ATTEMPTS = 5;
+    private static final long COOLDOWN_DURATION_MS = 60_000L;
+
+
 
     public VelocityListener(NaturalAuthVelocity plugin) {
         this.plugin = plugin;
@@ -166,7 +175,11 @@ public class VelocityListener {
             // Kick player if not authenticated within 60 seconds
             plugin.getServer().getScheduler().buildTask(plugin, () -> {
                 if (player.isActive() && !plugin.isAuthenticated(uuid)) {
-                    player.disconnect(Component.text("§cWaktu login habis! (Batas 60 detik)"));
+                    player.disconnect(Component.text(
+                        "§c§l⏱ Waktu Habis!\n" +
+                        "§r§7Anda tidak menyelesaikan login dalam 60 detik.\n" +
+                        "§aGabung kembali untuk mencoba lagi."
+                    ));
                 }
             }).delay(60, TimeUnit.SECONDS).schedule();
         }
@@ -198,6 +211,8 @@ public class VelocityListener {
         plugin.getJoinTimes().remove(uuid);
         pendingAutoLoginPlayers.remove(uuid);
         pendingAutoRulesPlayers.remove(uuid);
+        loginAttempts.remove(uuid);
+        loginCooldowns.remove(uuid);
     }
 
     @Subscribe
@@ -329,7 +344,7 @@ public class VelocityListener {
         }
     }
 
-    private void startAuthFlow(Player player) {
+    public void startAuthFlow(Player player) {
         UUID uuid = player.getUniqueId();
         boolean registered = plugin.getDatabaseManager().isRegistered(player.getUsername());
 
@@ -378,12 +393,75 @@ public class VelocityListener {
                 sendAuthStatusToPaper(player, false, "Registrasi gagal, coba lagi!");
             }
         } else {
-            // Logging in
+            // Logging in — check cooldown first
+            Long cooldownEnd = loginCooldowns.get(uuid);
+            if (cooldownEnd != null && System.currentTimeMillis() < cooldownEnd) {
+                long remainingSeconds = (cooldownEnd - System.currentTimeMillis()) / 1000 + 1;
+                sendAuthStatusToPaper(player, false, "Terlalu banyak percobaan! Coba lagi dalam " + remainingSeconds + "s.");
+                return;
+            }
+
             if (plugin.verifyPassword(player.getUsername(), password)) {
+                loginAttempts.remove(uuid);
+                loginCooldowns.remove(uuid);
                 player.sendMessage(Component.text("§aLogin berhasil!"));
                 handlePasswordVerified(player);
             } else {
-                sendAuthStatusToPaper(player, false, "Password salah!");
+                int attempts = loginAttempts.merge(uuid, 1, Integer::sum);
+                int remaining = MAX_LOGIN_ATTEMPTS - attempts;
+                if (remaining <= 0) {
+                    loginAttempts.remove(uuid);
+                    loginCooldowns.put(uuid, System.currentTimeMillis() + COOLDOWN_DURATION_MS);
+                    player.disconnect(Component.text(
+                        "§c§l\uD83D\uDEAB Terlalu Banyak Percobaan!\n" +
+                        "§r§7Anda gagal login sebanyak " + MAX_LOGIN_ATTEMPTS + " kali.\n" +
+                        "§aSilakan coba kembali dalam 60 detik."
+                    ));
+                } else {
+                    sendAuthStatusToPaper(player, false, "Password salah! (" + attempts + "/" + MAX_LOGIN_ATTEMPTS + " percobaan)");
+                }
+            }
+        }
+    }
+
+    /**
+     * Text-based login via /login command — includes brute force protection.
+     */
+    public void handleTextLogin(Player player, String password) {
+        UUID uuid = player.getUniqueId();
+
+        // Check cooldown
+        Long cooldownEnd = loginCooldowns.get(uuid);
+        if (cooldownEnd != null && System.currentTimeMillis() < cooldownEnd) {
+            long remainingSeconds = (cooldownEnd - System.currentTimeMillis()) / 1000 + 1;
+            player.sendMessage(Component.text(
+                "§c§lTerlalu banyak percobaan gagal! §r§cCoba lagi dalam §e" + remainingSeconds + " §cdetik."
+            ));
+            return;
+        }
+
+        if (plugin.verifyPassword(player.getUsername(), password)) {
+            loginAttempts.remove(uuid);
+            loginCooldowns.remove(uuid);
+            player.sendMessage(Component.text("§a§lNaturalAuth §r§aLogin berhasil!"));
+            handlePasswordVerified(player);
+        } else {
+            int attempts = loginAttempts.merge(uuid, 1, Integer::sum);
+            int remaining = MAX_LOGIN_ATTEMPTS - attempts;
+            if (remaining <= 0) {
+                loginAttempts.remove(uuid);
+                loginCooldowns.put(uuid, System.currentTimeMillis() + COOLDOWN_DURATION_MS);
+                player.disconnect(Component.text(
+                    "§c§l\uD83D\uDEAB Terlalu Banyak Percobaan!\n" +
+                    "§r§7Anda gagal login sebanyak " + MAX_LOGIN_ATTEMPTS + " kali.\n" +
+                    "§aSilakan coba kembali dalam 60 detik."
+                ));
+            } else {
+                String warningColor = remaining == 1 ? "§c§l" : "§e";
+                player.sendMessage(Component.text(
+                    "§cPassword salah! §7(Percobaan §c" + attempts + "§7/§c" + MAX_LOGIN_ATTEMPTS + "§7) " +
+                    warningColor + (remaining == 1 ? "— Percobaan terakhir!" : "— " + remaining + " sisa")
+                ));
             }
         }
     }
@@ -412,6 +490,8 @@ public class VelocityListener {
 
         plugin.setPendingRules(uuid, false);
         plugin.setAuthenticated(uuid, true);
+        loginAttempts.remove(uuid);
+        loginCooldowns.remove(uuid);
 
         // Save Session
         plugin.getSessionManager().createSession(uuid, ip);

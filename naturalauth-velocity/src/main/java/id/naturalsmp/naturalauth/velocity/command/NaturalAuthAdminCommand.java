@@ -384,6 +384,38 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
     }
 
     @Override
+    public java.util.List<String> suggest(Invocation invocation) {
+        String[] args = invocation.arguments();
+        if (args.length <= 1) {
+            return java.util.List.of("admin");
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("admin")) {
+            String partial = args[1].toLowerCase();
+            return java.util.Arrays.asList(
+                "forcelogin", "forceregister", "changepassword", "changeemail",
+                "unregister", "kick", "getotp", "resendotp", "whois", "setpremium", "setcracked"
+            ).stream().filter(s -> s.startsWith(partial)).collect(java.util.stream.Collectors.toList());
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("admin")) {
+            String sub = args[1].toLowerCase();
+            if (sub.equals("kick")) {
+                java.util.List<String> suggestions = new java.util.ArrayList<>(java.util.Arrays.asList("all", "*"));
+                plugin.getServer().getAllPlayers().stream()
+                    .map(p -> p.getUsername()).forEach(suggestions::add);
+                return suggestions;
+            }
+            if (sub.equals("getotp") || sub.equals("resendotp")) {
+                return java.util.List.of(); // email addresses, can't auto-complete
+            }
+            // For all player-targeting commands, suggest online players
+            return plugin.getServer().getAllPlayers().stream()
+                .map(p -> p.getUsername())
+                .collect(java.util.stream.Collectors.toList());
+        }
+        return java.util.List.of();
+    }
+
+    @Override
     public boolean hasPermission(Invocation invocation) {
         return invocation.source().hasPermission("naturalauth.admin");
     }

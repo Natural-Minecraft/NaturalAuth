@@ -27,13 +27,17 @@ public class UnregisterCommand implements SimpleCommand {
 
         String[] args = invocation.arguments();
         if (args.length == 0 || !args[0].equalsIgnoreCase("confirm")) {
-            player.sendMessage(Component.text("§c§l┌────────────────────────────────────────┐"));
-            player.sendMessage(Component.text("§c§l│              [!] PERINGATAN [!]              │"));
-            player.sendMessage(Component.text("§c§l└────────────────────────────────────────┘"));
-            player.sendMessage(Component.text("§7Tindakan ini akan MENGHAPUS akun Anda dari database server."));
-            player.sendMessage(Component.text("§7Anda akan ter-kick dan harus melakukan registrasi ulang."));
+            player.sendMessage(Component.text("§4§l╔══════════════════════════════════════╗"));
+            player.sendMessage(Component.text("§4§l║      ⚠  PERINGATAN BERBAHAYA  ⚠      ║"));
+            player.sendMessage(Component.text("§4§l╚══════════════════════════════════════╝"));
+            player.sendMessage(Component.text("§c§lAksi ini §4§lTIDAK DAPAT DIBATALKAN§c§l!"));
             player.sendMessage(Component.text(""));
-            player.sendMessage(Component.text("§eKetik §a/unregister confirm §euntuk mengonfirmasi tindakan."));
+            player.sendMessage(Component.text("§7• §fSemua data akun akan dihapus permanen dari database"));
+            player.sendMessage(Component.text("§7• §fAnda akan ter-disconnect secara otomatis"));
+            player.sendMessage(Component.text("§7• §fAnda harus registrasi ulang saat bergabung kembali"));
+            player.sendMessage(Component.text(""));
+            player.sendMessage(Component.text("§eKetik §a§l/unregister confirm §euntuk melanjutkan."));
+            player.sendMessage(Component.text("§7(Abaikan pesan ini jika ingin membatalkan)"));
             return;
         }
 

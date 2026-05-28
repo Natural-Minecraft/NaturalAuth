@@ -25,29 +25,40 @@ public class LoginCommand implements SimpleCommand {
             return;
         }
 
-        boolean registered = plugin.getDatabaseManager().isRegistered(player.getUsername());
-        if (!registered) {
-            player.sendMessage(Component.text("§cAkun Anda belum terdaftar! Silakan gunakan §e/register <password> <password> §cuntuk mendaftar."));
+        String[] args = invocation.arguments();
+
+        // No args → open GUI as a helpful fallback
+        if (args.length < 1) {
+            boolean registered = plugin.getDatabaseManager().isRegistered(player.getUsername());
+            if (!registered) {
+                player.sendMessage(Component.text("§cAkun Anda belum terdaftar! Gunakan §e/register <password> <password>§c untuk mendaftar."));
+                return;
+            }
+            if (plugin.getVelocityListener() != null) {
+                plugin.getVelocityListener().startAuthFlow(player);
+            } else {
+                player.sendMessage(Component.text("§cGunakan: §e/login <password>"));
+            }
             return;
         }
 
-        String[] args = invocation.arguments();
-        if (args.length < 1) {
-            player.sendMessage(Component.text("§cGunakan: /login <password>"));
+        boolean registered = plugin.getDatabaseManager().isRegistered(player.getUsername());
+        if (!registered) {
+            player.sendMessage(Component.text("§cAkun Anda belum terdaftar! Gunakan §e/register <password> <password>§c untuk mendaftar."));
             return;
         }
 
         String password = args[0];
-        if (plugin.verifyPassword(player.getUsername(), password)) {
-            player.sendMessage(Component.text("§aLogin berhasil!"));
-            if (plugin.getVelocityListener() != null) {
-                plugin.getVelocityListener().handlePasswordVerified(player);
-            } else {
-                plugin.setAuthenticated(player.getUniqueId(), true);
-                player.sendMessage(Component.text("§aAutentikasi berhasil. Menghubungkan ke server..."));
-            }
+        if (plugin.getVelocityListener() != null) {
+            plugin.getVelocityListener().handleTextLogin(player, password);
         } else {
-            player.sendMessage(Component.text("§cPassword salah!"));
+            // Fallback (should never happen in production)
+            if (plugin.verifyPassword(player.getUsername(), password)) {
+                plugin.setAuthenticated(player.getUniqueId(), true);
+                player.sendMessage(Component.text("§aLogin berhasil!"));
+            } else {
+                player.sendMessage(Component.text("§cPassword salah!"));
+            }
         }
     }
 
