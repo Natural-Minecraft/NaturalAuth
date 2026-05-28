@@ -218,9 +218,13 @@ public class VelocityListener {
         if (event.getCommandSource() instanceof Player player) {
             if (!plugin.isAuthenticated(player.getUniqueId())) {
                 String cmdLine = event.getCommand().toLowerCase().trim();
-                if (cmdLine.startsWith("naturalauth ") || cmdLine.startsWith("na ") ||
-                    cmdLine.equals("naturalauth") || cmdLine.equals("na")) {
-                    return; // Allow the rule acceptance commands to bypass proxy block and reach Paper
+                String firstWord = cmdLine.split(" ")[0];
+                if (firstWord.equals("naturalauth") || firstWord.equals("na") ||
+                    firstWord.equals("login") || firstWord.equals("register") ||
+                    firstWord.equals("email") || firstWord.equals("forgotpassword") ||
+                    firstWord.equals("lupasandi") || firstWord.equals("resetpassword") ||
+                    firstWord.equals("changepassword")) {
+                    return; // Allow these essential commands to bypass proxy block for auth fallbacks
                 }
                 
                 event.setResult(CommandExecuteEvent.CommandResult.denied());
@@ -311,6 +315,12 @@ public class VelocityListener {
                     if (!plugin.isAuthenticated(uuid)) {
                         handleEmailSubmission(player, email);
                     }
+                });
+            } else if (packetId == AuthBridgeProtocol.PACKET_SUBMIT_OTP) {
+                UUID uuid = UUID.fromString(dis.readUTF());
+                String otpCode = dis.readUTF();
+                plugin.getServer().getPlayer(uuid).ifPresent(player -> {
+                    handleOtpSubmission(player, otpCode);
                 });
             }
 
@@ -485,13 +495,25 @@ public class VelocityListener {
 
     private void handleEmailSubmission(Player player, String email) {
         UUID uuid = player.getUniqueId();
-        if (email != null && !email.trim().isEmpty()) {
+        if (email != null && !email.trim().isEmpty() && email.contains("@")) {
+            String otpCode = String.format("%06d", new java.util.Random().nextInt(1000000));
             plugin.getDatabaseManager().setEmail(uuid, email);
-            player.sendMessage(Component.text("§a§lNaturalAuth §r§aEmail berhasil dikaitkan ke akun Anda!"));
+            plugin.getDatabaseManager().saveOTP(uuid, email, otpCode);
+            
+            player.sendMessage(Component.text("§a§lNaturalAuth §r§aMengirimkan kode OTP ke email Anda..."));
+            plugin.sendOtpEmail(player.getUsername(), email, otpCode).thenAccept(success -> {
+                if (success) {
+                    player.sendMessage(Component.text("§aOTP telah dikirim! Cek inbox atau folder spam email Anda."));
+                    sendOpenOtpToPaper(player);
+                } else {
+                    player.sendMessage(Component.text("§cGagal mengirim email OTP. Silakan hubungi admin atau kaitkan nanti."));
+                    handlePasswordVerified(player);
+                }
+            });
         } else {
             player.sendMessage(Component.text("§e§lNaturalAuth §r§eEmail dilewati. Anda bisa mengaitkannya nanti jika perlu."));
+            handlePasswordVerified(player);
         }
-        handlePasswordVerified(player);
     }
 
     private void sendOpenEmailLinkToPaper(Player player) {
@@ -505,6 +527,44 @@ public class VelocityListener {
             sendPluginMessage(player, baos.toByteArray());
         } catch (IOException e) {
             plugin.getLogger().error("Failed to construct PACKET_OPEN_EMAIL_LINK", e);
+        }
+    }
+
+    public void sendOpenOtpToPaper(Player player) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             DataOutputStream dos = new DataOutputStream(baos)) {
+
+            plugin.getLogger().info("[NaturalAuth-Debug] Sending PACKET_OPEN_OTP_GUI to Paper for player: " + player.getUsername());
+            dos.writeByte(AuthBridgeProtocol.PACKET_OPEN_OTP_GUI);
+            dos.writeUTF(player.getUniqueId().toString());
+            dos.writeUTF("Masukkan 6-Digit OTP:");
+
+            sendPluginMessage(player, baos.toByteArray());
+        } catch (IOException e) {
+            plugin.getLogger().error("Failed to construct PACKET_OPEN_OTP_GUI", e);
+        }
+    }
+
+    private void handleOtpSubmission(Player player, String typedOtp) {
+        UUID uuid = player.getUniqueId();
+        String email = plugin.getDatabaseManager().getEmail(uuid);
+        if (email == null) {
+            sendAuthStatusToPaper(player, false, "Tidak ada penautan email yang aktif!");
+            return;
+        }
+
+        String activeOtp = plugin.getDatabaseManager().getOTP(email);
+        if (activeOtp == null) {
+            sendAuthStatusToPaper(player, false, "OTP kedaluwarsa atau tidak valid!");
+            return;
+        }
+
+        if (activeOtp.equals(typedOtp.trim())) {
+            plugin.getDatabaseManager().deleteOTP(uuid);
+            player.sendMessage(Component.text("§a§lNaturalAuth §r§aVerifikasi OTP berhasil! Email Anda telah ditautkan."));
+            handlePasswordVerified(player);
+        } else {
+            sendAuthStatusToPaper(player, false, "OTP salah!");
         }
     }
 }

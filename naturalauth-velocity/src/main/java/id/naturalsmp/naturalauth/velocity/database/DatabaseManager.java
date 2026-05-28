@@ -13,6 +13,7 @@ public class DatabaseManager {
     private HikariDataSource dataSource;
     private String usersTable;
     private String sessionsTable;
+    private String otpsTable;
 
     public DatabaseManager(Logger logger) {
         this.logger = logger;
@@ -21,6 +22,7 @@ public class DatabaseManager {
     public void init(String host, int port, String dbName, String username, String password, String prefix) {
         usersTable = prefix + "users";
         sessionsTable = prefix + "sessions";
+        otpsTable = prefix + "otps";
 
         HikariConfig config = new HikariConfig();
         config.setDriverClassName("com.mysql.cj.jdbc.Driver");
@@ -66,6 +68,14 @@ public class DatabaseManager {
                     "ip VARCHAR(45) NOT NULL, " +
                     "session_token VARCHAR(64) NOT NULL, " +
                     "expiry TIMESTAMP NOT NULL" +
+                    ")");
+
+            // OTP table
+            stmt.executeUpdate("CREATE TABLE IF NOT EXISTS " + otpsTable + " (" +
+                    "uuid VARCHAR(36) PRIMARY KEY, " +
+                    "email VARCHAR(255) NOT NULL, " +
+                    "otp_code VARCHAR(6) NOT NULL, " +
+                    "expires_at TIMESTAMP NOT NULL" +
                     ")");
 
             logger.info("Database tables initialized successfully.");
@@ -375,5 +385,116 @@ public class DatabaseManager {
         } catch (SQLException e) {
             logger.error("Failed to set phone number for UUID: " + uuid, e);
         }
+    }
+
+    // ───── OTP & Admin Command Methods ───────────────────────────────────────
+
+    public boolean saveOTP(UUID uuid, String email, String otpCode) {
+        String query = "INSERT INTO " + otpsTable + " (uuid, email, otp_code, expires_at) VALUES (?, ?, ?, ?) " +
+                "ON DUPLICATE KEY UPDATE email = ?, otp_code = ?, expires_at = ?";
+        Timestamp expiry = new Timestamp(System.currentTimeMillis() + (5 * 60 * 1000L)); // 5 minutes
+        try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, uuid.toString());
+            ps.setString(2, email);
+            ps.setString(3, otpCode);
+            ps.setTimestamp(4, expiry);
+            ps.setString(5, email);
+            ps.setString(6, otpCode);
+            ps.setTimestamp(7, expiry);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            logger.error("Failed to save OTP for UUID: " + uuid, e);
+            return false;
+        }
+    }
+
+    public String getOTP(String email) {
+        String query = "SELECT otp_code, expires_at FROM " + otpsTable + " WHERE LOWER(email) = ? LIMIT 1";
+        try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, email.toLowerCase().trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Timestamp expires = rs.getTimestamp("expires_at");
+                    if (expires.after(new Timestamp(System.currentTimeMillis()))) {
+                        return rs.getString("otp_code");
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Failed to get OTP for email: " + email, e);
+        }
+        return null;
+    }
+
+    public boolean deleteOTP(UUID uuid) {
+        String query = "DELETE FROM " + otpsTable + " WHERE uuid = ?";
+        try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, uuid.toString());
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            logger.error("Failed to delete OTP for UUID: " + uuid, e);
+            return false;
+        }
+    }
+
+    public boolean unregisterUser(String username) {
+        String query = "DELETE FROM " + usersTable + " WHERE LOWER(username) = ?";
+        try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, username.toLowerCase());
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            logger.error("Failed to unregister user: " + username, e);
+            return false;
+        }
+    }
+
+    public boolean updatePasswordByUsername(String username, String passwordHash) {
+        String query = "UPDATE " + usersTable + " SET password_hash = ? WHERE LOWER(username) = ?";
+        try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, passwordHash);
+            ps.setString(2, username.toLowerCase());
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            logger.error("Failed to update password for user: " + username, e);
+            return false;
+        }
+    }
+
+    public boolean updateEmailByUsername(String username, String email) {
+        String query = "UPDATE " + usersTable + " SET email = ? WHERE LOWER(username) = ?";
+        try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(query)) {
+            if (email == null || email.trim().isEmpty()) {
+                ps.setNull(1, Types.VARCHAR);
+            } else {
+                ps.setString(1, email.trim());
+            }
+            ps.setString(2, username.toLowerCase());
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            logger.error("Failed to update email for user: " + username, e);
+            return false;
+        }
+    }
+
+    public java.util.Map<String, String> getUserInfo(String username) {
+        String query = "SELECT uuid, username, premium, email, phone_number, created_at FROM " + usersTable + " WHERE LOWER(username) = ? LIMIT 1";
+        try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, username.toLowerCase());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    java.util.Map<String, String> info = new java.util.HashMap<>();
+                    info.put("uuid", rs.getString("uuid"));
+                    info.put("username", rs.getString("username"));
+                    info.put("premium", String.valueOf(rs.getInt("premium") == 1));
+                    info.put("email", rs.getString("email") != null ? rs.getString("email") : "Tidak ada");
+                    info.put("phone_number", rs.getString("phone_number") != null ? rs.getString("phone_number") : "Tidak ada");
+                    info.put("created_at", rs.getTimestamp("created_at").toString());
+                    return info;
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Failed to get user info for: " + username, e);
+        }
+        return null;
     }
 }

@@ -211,6 +211,48 @@ public class AnvilGuiRenderer {
                 .open(player);
     }
 
+    public static void openOtpGUI(NaturalAuthPaper plugin, Player player, String prompt) {
+        ItemStack itemLeft = new ItemStack(Material.PAPER);
+        ItemMeta meta = itemLeft.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(prompt);
+            itemLeft.setItemMeta(meta);
+        }
+
+        new AnvilGUI.Builder()
+                .plugin(plugin)
+                .title("Verifikasi OTP")
+                .text("000000")
+                .itemLeft(itemLeft)
+                .onClick((slot, stateSnapshot) -> {
+                    if (slot != AnvilGUI.Slot.OUTPUT) {
+                        return Collections.emptyList();
+                    }
+
+                    String otp = stateSnapshot.getText().trim();
+                    if (otp.isEmpty() || otp.equalsIgnoreCase("000000")) {
+                        player.sendMessage("§cMasukkan kode OTP 6 digit yang dikirim ke email Anda!");
+                        return Collections.singletonList(AnvilGUI.ResponseAction.replaceInputText("000000"));
+                    }
+                    if (!otp.matches("\\d{6}")) {
+                        player.sendMessage("§cKode OTP harus 6 angka!");
+                        return Collections.singletonList(AnvilGUI.ResponseAction.replaceInputText("000000"));
+                    }
+
+                    submitOtpToVelocity(plugin, player, otp);
+                    return Arrays.asList(AnvilGUI.ResponseAction.close());
+                })
+                .onClose(stateSnapshot -> {
+                    // Reopen OTP GUI if player closes without submitting and is still unauthenticated
+                    Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                        if (player.isOnline() && !plugin.isAuthenticated(player.getUniqueId())) {
+                            openOtpGUI(plugin, player, prompt);
+                        }
+                    }, 20L);
+                })
+                .open(player);
+    }
+
     private static void submitEmailToVelocity(NaturalAuthPaper plugin, Player player, String email) {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
              DataOutputStream dos = new DataOutputStream(baos)) {
@@ -222,6 +264,21 @@ public class AnvilGuiRenderer {
             player.sendPluginMessage(plugin, AuthBridgeProtocol.FULL_CHANNEL, baos.toByteArray());
         } catch (IOException e) {
             plugin.getLogger().severe("Failed to send PACKET_SUBMIT_EMAIL to Velocity!");
+            e.printStackTrace();
+        }
+    }
+
+    private static void submitOtpToVelocity(NaturalAuthPaper plugin, Player player, String otp) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             DataOutputStream dos = new DataOutputStream(baos)) {
+
+            dos.writeByte(AuthBridgeProtocol.PACKET_SUBMIT_OTP);
+            dos.writeUTF(player.getUniqueId().toString());
+            dos.writeUTF(otp);
+
+            player.sendPluginMessage(plugin, AuthBridgeProtocol.FULL_CHANNEL, baos.toByteArray());
+        } catch (IOException e) {
+            plugin.getLogger().severe("Failed to send PACKET_SUBMIT_OTP to Velocity!");
             e.printStackTrace();
         }
     }

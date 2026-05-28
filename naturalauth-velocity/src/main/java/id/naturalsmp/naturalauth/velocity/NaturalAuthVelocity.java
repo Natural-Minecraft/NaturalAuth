@@ -17,6 +17,12 @@ import id.naturalsmp.naturalauth.velocity.session.SessionManager;
 import id.naturalsmp.naturalauth.velocity.command.LogoutCommand;
 import id.naturalsmp.naturalauth.velocity.command.PremiumCommand;
 import id.naturalsmp.naturalauth.velocity.command.CrackedCommand;
+import id.naturalsmp.naturalauth.velocity.command.LoginCommand;
+import id.naturalsmp.naturalauth.velocity.command.RegisterCommand;
+import id.naturalsmp.naturalauth.velocity.command.UnregisterCommand;
+import id.naturalsmp.naturalauth.velocity.command.ForgotPasswordCommand;
+import id.naturalsmp.naturalauth.velocity.command.EmailCommand;
+import id.naturalsmp.naturalauth.velocity.command.NaturalAuthAdminCommand;
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.command.CommandMeta;
 import net.kyori.adventure.text.Component;
@@ -51,6 +57,7 @@ public class NaturalAuthVelocity {
     private DatabaseManager databaseManager;
     private SessionManager sessionManager;
     private Toml config;
+    private VelocityListener velocityListener;
     private final java.net.http.HttpClient httpClient = java.net.http.HttpClient.newHttpClient();
 
     public static final MinecraftChannelIdentifier BRIDGE_CHANNEL =
@@ -116,10 +123,12 @@ public class NaturalAuthVelocity {
         sessionManager = new SessionManager(databaseManager, sessionExpiryHours, autoLogin);
 
         server.getChannelRegistrar().register(BRIDGE_CHANNEL);
-        server.getEventManager().register(this, new VelocityListener(this));
+        velocityListener = new VelocityListener(this);
+        server.getEventManager().register(this, velocityListener);
 
         // Register commands
         CommandManager commandManager = server.getCommandManager();
+
         CommandMeta logoutMeta = commandManager.metaBuilder("logout").build();
         commandManager.register(logoutMeta, new LogoutCommand(this));
 
@@ -128,6 +137,28 @@ public class NaturalAuthVelocity {
 
         CommandMeta crackedMeta = commandManager.metaBuilder("cracked").build();
         commandManager.register(crackedMeta, new CrackedCommand(this));
+
+        CommandMeta loginMeta = commandManager.metaBuilder("login").build();
+        commandManager.register(loginMeta, new LoginCommand(this));
+
+        CommandMeta registerMeta = commandManager.metaBuilder("register").build();
+        commandManager.register(registerMeta, new RegisterCommand(this));
+
+        CommandMeta unregisterMeta = commandManager.metaBuilder("unregister").build();
+        commandManager.register(unregisterMeta, new UnregisterCommand(this));
+
+        CommandMeta forgotMeta = commandManager.metaBuilder("forgotpassword")
+                .aliases("lupasandi", "resetpassword", "changepassword")
+                .build();
+        commandManager.register(forgotMeta, new ForgotPasswordCommand(this));
+
+        CommandMeta emailMeta = commandManager.metaBuilder("email").build();
+        commandManager.register(emailMeta, new EmailCommand(this));
+
+        CommandMeta naMeta = commandManager.metaBuilder("na")
+                .aliases("naturalauth")
+                .build();
+        commandManager.register(naMeta, new NaturalAuthAdminCommand(this));
 
         // Start Survival server online status checking task (runs immediately, then every 5 minutes)
         checkSurvivalStatus();
@@ -200,6 +231,7 @@ public class NaturalAuthVelocity {
     public Toml getConfig() { return config; }
     public Set<UUID> getAuthenticatedPlayers() { return authenticatedPlayers; }
     public Map<UUID, Long> getJoinTimes() { return joinTimes; }
+    public VelocityListener getVelocityListener() { return velocityListener; }
 
     // ───── Survival Status Checking ──────────────────────────────────────────
 
@@ -318,6 +350,42 @@ public class NaturalAuthVelocity {
                 .thenApply(response -> response.statusCode() == 200)
                 .exceptionally(ex -> {
                     logger.error("Failed to check Mojang API for username: " + username, ex);
+                    return false;
+                });
+    }
+
+    public java.util.concurrent.CompletableFuture<Boolean> sendOtpEmail(String username, String email, String otpCode) {
+        String baseUrl = "https://naturalsmp.net";
+        if (config != null && config.getTable("settings") != null) {
+            String configUrl = config.getTable("settings").getString("website-url");
+            if (configUrl != null) baseUrl = configUrl;
+        }
+        
+        String url = baseUrl + "/api/auth/send-otp";
+        String apiKey = "rahasia_super_aman_12345";
+        
+        String jsonPayload = String.format("{\"username\":\"%s\",\"email\":\"%s\",\"otpCode\":\"%s\"}", username, email, otpCode);
+        
+        java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                .uri(java.net.URI.create(url))
+                .header("Content-Type", "application/json")
+                .header("x-api-key", apiKey)
+                .POST(java.net.http.HttpRequest.BodyPublishers.ofString(jsonPayload))
+                .timeout(java.time.Duration.ofSeconds(8))
+                .build();
+                
+        return httpClient.sendAsync(request, java.net.http.HttpResponse.BodyHandlers.ofString())
+                .thenApply(response -> {
+                    if (response.statusCode() == 200) {
+                        logger.info("Successfully sent OTP email to: " + email);
+                        return true;
+                    } else {
+                        logger.error("Failed to send OTP email. Server status: " + response.statusCode() + ", Response: " + response.body());
+                        return false;
+                    }
+                })
+                .exceptionally(ex -> {
+                    logger.error("Error calling OTP API for: " + email, ex);
                     return false;
                 });
     }

@@ -21,9 +21,17 @@ import org.bukkit.plugin.messaging.PluginMessageListener;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.Material;
+import org.bukkit.inventory.meta.ItemMeta;
+import net.kyori.adventure.text.Component;
 
 public class PaperListener implements Listener, PluginMessageListener {
 
@@ -32,6 +40,8 @@ public class PaperListener implements Listener, PluginMessageListener {
     // Tracks active GUI type and prompt for unauthenticated players to handle esc-reopens properly
     private final Map<UUID, String> activeGuiType = new ConcurrentHashMap<>();
     private final Map<UUID, String> activePrompt = new ConcurrentHashMap<>();
+    // Track admins who have a read-only Whois chest GUI open
+    private final java.util.Set<UUID> whoisAdmins = ConcurrentHashMap.newKeySet();
 
     public PaperListener(NaturalAuthPaper plugin) {
         this.plugin = plugin;
@@ -131,6 +141,23 @@ public class PaperListener implements Listener, PluginMessageListener {
                         plugin.getLogger().info("[NaturalAuth-Debug] Opening Anvil GUI for Email Link for " + target.getName());
                         AnvilGuiRenderer.openEmailLinkGUI(plugin, target);
                     }
+                }
+            } else if (packetId == AuthBridgeProtocol.PACKET_OPEN_OTP_GUI) {
+                UUID uuid = UUID.fromString(dis.readUTF());
+                String prompt = dis.readUTF();
+                Player target = Bukkit.getPlayer(uuid);
+                if (target != null && target.isOnline()) {
+                    target.closeInventory();
+                    plugin.getLogger().info("[NaturalAuth-Debug] Opening OTP Anvil GUI for " + target.getName());
+                    AnvilGuiRenderer.openOtpGUI(plugin, target, prompt);
+                }
+            } else if (packetId == AuthBridgeProtocol.PACKET_WHOIS_REQUEST) {
+                UUID adminUuid = UUID.fromString(dis.readUTF());
+                String targetUsername = dis.readUTF();
+                Player admin = Bukkit.getPlayer(adminUuid);
+                if (admin != null && admin.isOnline()) {
+                    plugin.getLogger().info("[NaturalAuth-Debug] Opening Whois Chest GUI for admin " + admin.getName() + " targeting " + targetUsername);
+                    openWhoisGui(admin, targetUsername);
                 }
             }
 
@@ -280,7 +307,12 @@ public class PaperListener implements Listener, PluginMessageListener {
     public void onInventoryClick(InventoryClickEvent event) {
         if (event.getWhoClicked() instanceof Player player) {
             UUID uuid = player.getUniqueId();
+            // Block all clicks for unauthenticated players
             if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
+                event.setCancelled(true);
+            }
+            // Block item movement in read-only Whois GUI for admins
+            else if (whoisAdmins.contains(uuid)) {
                 event.setCancelled(true);
             }
         }
@@ -290,7 +322,7 @@ public class PaperListener implements Listener, PluginMessageListener {
     public void onInventoryDrag(InventoryDragEvent event) {
         if (event.getWhoClicked() instanceof Player player) {
             UUID uuid = player.getUniqueId();
-            if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
+            if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid) || whoisAdmins.contains(uuid)) {
                 event.setCancelled(true);
             }
         }
@@ -369,6 +401,87 @@ public class PaperListener implements Listener, PluginMessageListener {
 
         player.sendMessage(choiceLine);
         player.sendMessage(Component.text("§8§m──────────────────────────────────"));
+    }
+
+    private void openWhoisGui(Player admin, String targetUsername) {
+        // Build info items (scheduled sync because Bukkit inventory API is main-thread only)
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            Inventory inv = Bukkit.createInventory(null, 27, "§8[Whois] §f" + targetUsername);
+
+            // Helper to create a labelled info item
+            java.util.function.BiFunction<String, List<String>, ItemStack> makeItem = (label, lore) -> {
+                ItemStack item = new ItemStack(Material.PAPER);
+                ItemMeta meta = item.getItemMeta();
+                if (meta != null) {
+                    meta.setDisplayName(label);
+                    meta.setLore(lore);
+                    item.setItemMeta(meta);
+                }
+                return item;
+            };
+
+            // ── Collect data ──────────────────────────────────────────────────
+            org.bukkit.entity.Player onlineTarget = Bukkit.getPlayerExact(targetUsername);
+
+            String uuid = onlineTarget != null ? onlineTarget.getUniqueId().toString() : "§7(offline)";
+            String ip   = onlineTarget != null ? onlineTarget.getAddress() != null
+                    ? onlineTarget.getAddress().getAddress().getHostAddress() : "§7N/A"
+                    : "§7(offline)";
+            String world    = onlineTarget != null ? onlineTarget.getWorld().getName() : "§7(offline)";
+            String location = onlineTarget != null ? String.format("%.1f, %.1f, %.1f",
+                    onlineTarget.getLocation().getX(),
+                    onlineTarget.getLocation().getY(),
+                    onlineTarget.getLocation().getZ()) : "§7(offline)";
+            String pingStr  = onlineTarget != null ? onlineTarget.getPing() + " ms" : "§7(offline)";
+
+            // ── Place items in chest ──────────────────────────────────────────
+            inv.setItem(2,  makeItem.apply("§b§lUsername",    Arrays.asList("§f" + targetUsername)));
+            inv.setItem(3,  makeItem.apply("§b§lUUID",        Arrays.asList("§f" + uuid)));
+            inv.setItem(4,  makeItem.apply("§b§lIP Address",  Arrays.asList("§f" + ip)));
+            inv.setItem(5,  makeItem.apply("§b§lPing",        Arrays.asList("§f" + pingStr)));
+            inv.setItem(11, makeItem.apply("§b§lWorld",       Arrays.asList("§f" + world)));
+            inv.setItem(12, makeItem.apply("§b§lLocation",    Arrays.asList("§f" + location)));
+
+            // Status item (online/offline indicator)
+            ItemStack statusItem = new ItemStack(onlineTarget != null ? Material.LIME_DYE : Material.GRAY_DYE);
+            ItemMeta statusMeta = statusItem.getItemMeta();
+            if (statusMeta != null) {
+                statusMeta.setDisplayName(onlineTarget != null ? "§a§lONLINE" : "§7§lOFFLINE");
+                statusItem.setItemMeta(statusMeta);
+            }
+            inv.setItem(13, statusItem);
+
+            // Fill empty slots with black glass to make it look like a clean read-only GUI
+            ItemStack filler = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
+            ItemMeta fillerMeta = filler.getItemMeta();
+            if (fillerMeta != null) {
+                fillerMeta.setDisplayName(" ");
+                filler.setItemMeta(fillerMeta);
+            }
+            for (int i = 0; i < inv.getSize(); i++) {
+                if (inv.getItem(i) == null) {
+                    inv.setItem(i, filler);
+                }
+            }
+
+            // Mark admin as having whois GUI open (blocks item theft)
+            whoisAdmins.add(admin.getUniqueId());
+            admin.openInventory(inv);
+        });
+    }
+
+    @EventHandler
+    public void onInventoryClose(org.bukkit.event.inventory.InventoryCloseEvent event) {
+        if (event.getPlayer() instanceof Player player) {
+            UUID uuid = player.getUniqueId();
+            // If admin closes the whois GUI, remove the lock
+            if (whoisAdmins.contains(uuid)) {
+                String title = event.getView().getTitle();
+                if (title.startsWith("§8[Whois]")) {
+                    whoisAdmins.remove(uuid);
+                }
+            }
+        }
     }
 
     public Map<UUID, String> getActiveGuiType() {
