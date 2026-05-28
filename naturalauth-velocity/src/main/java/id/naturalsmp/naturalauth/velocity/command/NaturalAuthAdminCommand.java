@@ -107,6 +107,7 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
 
         if (plugin.getVelocityListener() != null) {
             plugin.getVelocityListener().finalizeAuth(player);
+            plugin.logActivity(player.getUniqueId(), player.getUsername(), "ADMIN_FORCELOGIN", "127.0.0.1", "Dipaksa login oleh Admin");
             invocation.source().sendMessage(Component.text("§aBerhasil memaksa login player " + player.getUsername()));
         } else {
             invocation.source().sendMessage(Component.text("§cInternal listener error."));
@@ -135,6 +136,7 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
         UUID uuid = plugin.getServer().getPlayer(targetName).map(Player::getUniqueId).orElse(UUID.randomUUID());
         boolean success = plugin.register(uuid, targetName, pass1);
         if (success) {
+            plugin.logActivity(uuid, targetName, "ADMIN_FORCEREGISTER", "127.0.0.1", "Didaftarkan secara manual oleh Admin");
             invocation.source().sendMessage(Component.text("§aBerhasil mendaftarkan player " + targetName + " dengan password baru."));
         } else {
             invocation.source().sendMessage(Component.text("§cGagal mendaftarkan player!"));
@@ -159,6 +161,11 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
         boolean success = plugin.getDatabaseManager().updatePasswordByUsername(targetName, hash);
 
         if (success) {
+            UUID uuid = plugin.getServer().getPlayer(targetName).map(Player::getUniqueId).orElseGet(() -> {
+                java.util.Map<String, String> info = plugin.getDatabaseManager().getUserInfo(targetName);
+                return info != null ? UUID.fromString(info.get("uuid")) : UUID.randomUUID();
+            });
+            plugin.logActivity(uuid, targetName, "ADMIN_CHANGEPASSWORD", "127.0.0.1", "Password diubah secara manual oleh Admin");
             invocation.source().sendMessage(Component.text("§aBerhasil mengganti password untuk player " + targetName));
             plugin.getServer().getPlayer(targetName).ifPresent(p -> {
                 p.sendMessage(Component.text("§ePassword Anda telah diubah oleh Admin. Silakan gunakan password baru Anda."));
@@ -183,6 +190,11 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
 
         boolean success = plugin.getDatabaseManager().updateEmailByUsername(targetName, newEmail);
         if (success) {
+            UUID uuid = plugin.getServer().getPlayer(targetName).map(Player::getUniqueId).orElseGet(() -> {
+                java.util.Map<String, String> info = plugin.getDatabaseManager().getUserInfo(targetName);
+                return info != null ? UUID.fromString(info.get("uuid")) : UUID.randomUUID();
+            });
+            plugin.logActivity(uuid, targetName, "ADMIN_CHANGEEMAIL", "127.0.0.1", "Email diubah menjadi " + newEmail + " oleh Admin");
             invocation.source().sendMessage(Component.text("§aBerhasil mengubah email player " + targetName + " menjadi " + newEmail));
         } else {
             invocation.source().sendMessage(Component.text("§cGagal mengubah email!"));
@@ -203,6 +215,11 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
 
         boolean success = plugin.getDatabaseManager().unregisterUser(targetName);
         if (success) {
+            UUID uuid = plugin.getServer().getPlayer(targetName).map(Player::getUniqueId).orElseGet(() -> {
+                java.util.Map<String, String> info = plugin.getDatabaseManager().getUserInfo(targetName);
+                return info != null ? UUID.fromString(info.get("uuid")) : UUID.randomUUID();
+            });
+            plugin.logActivity(uuid, targetName, "ADMIN_UNREGISTER", "127.0.0.1", "Registrasi dihapus oleh Admin");
             invocation.source().sendMessage(Component.text("§aBerhasil menghapus pendaftaran player " + targetName));
             plugin.getServer().getPlayer(targetName).ifPresent(p -> {
                 plugin.getSessionManager().removeSession(p.getUniqueId());
@@ -368,6 +385,7 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
 
         plugin.getDatabaseManager().setPremium(uuid, true);
         plugin.getDatabaseManager().updatePassword(uuid, ""); // Clear password hash
+        plugin.logActivity(uuid, targetName, "ADMIN_SETPREMIUM", "127.0.0.1", "Diubah menjadi Premium oleh Admin");
 
         invocation.source().sendMessage(Component.text("§aSukses menyetel status player " + targetName + " sebagai PREMIUM (Password terhapus)."));
 
@@ -404,6 +422,7 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
         }
 
         plugin.getDatabaseManager().setPremium(uuid, false);
+        plugin.logActivity(uuid, targetName, "ADMIN_SETCRACKED", "127.0.0.1", "Diubah menjadi Cracked (Registrasi dihapus) oleh Admin");
 
         invocation.source().sendMessage(Component.text("§eSukses menyetel status player " + targetName + " sebagai CRACKED. Player dipaksa registrasi ulang."));
 

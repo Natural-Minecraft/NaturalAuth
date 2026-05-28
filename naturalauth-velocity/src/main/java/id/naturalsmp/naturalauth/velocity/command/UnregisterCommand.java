@@ -45,6 +45,7 @@ public class UnregisterCommand implements SimpleCommand {
         if (success) {
             plugin.getSessionManager().removeSession(player.getUniqueId());
             plugin.setAuthenticated(player.getUniqueId(), false);
+            plugin.logActivity(player.getUniqueId(), player.getUsername(), "UNREGISTER", player.getRemoteAddress().getAddress().getHostAddress(), "Menghapus akun sendiri (Unregistered)");
             player.disconnect(Component.text("§aAkun Anda telah sukses dihapus (Unregistered).\n§7Silakan masuk kembali jika ingin mendaftar ulang."));
         } else {
             player.sendMessage(Component.text("§cGagal menghapus akun. Silakan coba kembali!"));

@@ -38,6 +38,7 @@ public class PremiumCommand implements SimpleCommand {
         // Set player status as Premium in DB
         plugin.getDatabaseManager().setPremium(player.getUniqueId(), true);
         plugin.getDatabaseManager().updatePassword(player.getUniqueId(), "");
+        plugin.logActivity(player.getUniqueId(), player.getUsername(), "PREMIUM_ON", player.getRemoteAddress().getAddress().getHostAddress(), "Mengaktifkan mode Premium Mojang");
 
         // Fetch success message from config
         String msg = "§aFitur Premium diaktifkan! Silakan join kembali menggunakan launcher original Anda secara aman.";

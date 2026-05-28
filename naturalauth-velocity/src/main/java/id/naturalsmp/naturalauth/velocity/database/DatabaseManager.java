@@ -14,6 +14,7 @@ public class DatabaseManager {
     private String usersTable;
     private String sessionsTable;
     private String otpsTable;
+    private String logsTable;
 
     public DatabaseManager(Logger logger) {
         this.logger = logger;
@@ -23,6 +24,7 @@ public class DatabaseManager {
         usersTable = prefix + "users";
         sessionsTable = prefix + "sessions";
         otpsTable = prefix + "otps";
+        logsTable = prefix + "logs";
 
         HikariConfig config = new HikariConfig();
         config.setDriverClassName("com.mysql.cj.jdbc.Driver");
@@ -76,6 +78,17 @@ public class DatabaseManager {
                     "email VARCHAR(255) NOT NULL, " +
                     "otp_code VARCHAR(6) NOT NULL, " +
                     "expires_at TIMESTAMP NOT NULL" +
+                    ")");
+
+            // Logs table
+            stmt.executeUpdate("CREATE TABLE IF NOT EXISTS " + logsTable + " (" +
+                    "id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "uuid VARCHAR(36) NOT NULL, " +
+                    "username VARCHAR(16) NOT NULL, " +
+                    "action VARCHAR(32) NOT NULL, " +
+                    "ip VARCHAR(45) NOT NULL, " +
+                    "details VARCHAR(512) DEFAULT NULL, " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                     ")");
 
             logger.info("Database tables initialized successfully.");
@@ -496,5 +509,23 @@ public class DatabaseManager {
             logger.error("Failed to get user info for: " + username, e);
         }
         return null;
+    }
+
+    public void logActivity(UUID uuid, String username, String action, String ip, String details) {
+        String query = "INSERT INTO " + logsTable + " (uuid, username, action, ip, details) VALUES (?, ?, ?, ?, ?)";
+        try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, uuid.toString());
+            ps.setString(2, username);
+            ps.setString(3, action);
+            ps.setString(4, ip);
+            if (details == null) {
+                ps.setNull(5, Types.VARCHAR);
+            } else {
+                ps.setString(5, details);
+            }
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Failed to log activity (" + action + ") for " + username, e);
+        }
     }
 }

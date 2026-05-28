@@ -29,6 +29,7 @@ public class LogoutCommand implements SimpleCommand {
         // Remove session and set as unauthenticated
         plugin.getSessionManager().removeSession(player.getUniqueId());
         plugin.setAuthenticated(player.getUniqueId(), false);
+        plugin.logActivity(player.getUniqueId(), player.getUsername(), "LOGOUT", player.getRemoteAddress().getAddress().getHostAddress(), "Logout via command");
 
         // Fetch logout message from config (default back if not defined or section missing)
         String logoutMessage = "§aAnda telah berhasil logout.\n§7Silakan masuk kembali untuk login ulang.";

@@ -36,6 +36,7 @@ public class CrackedCommand implements SimpleCommand {
 
         // Set player status as Cracked in DB
         plugin.getDatabaseManager().setPremium(player.getUniqueId(), false);
+        plugin.logActivity(player.getUniqueId(), player.getUsername(), "PREMIUM_OFF", player.getRemoteAddress().getAddress().getHostAddress(), "Menonaktifkan mode Premium Mojang (Cracked)");
 
         // Fetch success message from config
         String msg = "§aFitur Cracked diaktifkan! Silakan masuk kembali dan gunakan password Anda.";

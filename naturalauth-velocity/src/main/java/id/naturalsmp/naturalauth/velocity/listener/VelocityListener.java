@@ -110,6 +110,7 @@ public class VelocityListener {
                 plugin.register(uuid, player.getUsername(), "PREMIUM_AUTO_" + UUID.randomUUID().toString());
             }
             plugin.getDatabaseManager().setPremium(uuid, true);
+            plugin.logActivity(uuid, player.getUsername(), "LOGIN_PREMIUM", ip, "Bypass otomatis akun Premium Mojang");
 
             // Use pending mechanism — Paper PLAYER_READY will trigger the next step
             plugin.setAuthenticated(uuid, false);
@@ -137,6 +138,7 @@ public class VelocityListener {
             if (!registered) {
                 plugin.register(uuid, player.getUsername(), "BEDROCK_AUTO_" + UUID.randomUUID().toString());
             }
+            plugin.logActivity(uuid, player.getUsername(), "LOGIN_BEDROCK", ip, "Bypass otomatis Bedrock (Geyser/Floodgate)");
 
             // Use pending mechanism — Paper PLAYER_READY will trigger the next step
             plugin.setAuthenticated(uuid, false);
@@ -154,6 +156,7 @@ public class VelocityListener {
 
         // ── Check for Auto-Login via saved session ────────────────────────────
         if (plugin.getSessionManager().checkAutoLogin(uuid, ip)) {
+            plugin.logActivity(uuid, player.getUsername(), "LOGIN_SESSION", ip, "Auto-login otomatis via token sesi");
             // Check if player needs to accept rules even if session is active
             if (plugin.isRulesEnabled() && !plugin.getDatabaseManager().hasAcceptedRules(player.getUsername())) {
                 plugin.getLogger().info("Player " + player.getUsername() + " auto-logged in, but needs to accept rules.");
@@ -177,6 +180,7 @@ public class VelocityListener {
             // Kick player if not authenticated within 60 seconds
             plugin.getServer().getScheduler().buildTask(plugin, () -> {
                 if (player.isActive() && !plugin.isAuthenticated(uuid)) {
+                    plugin.logActivity(uuid, player.getUsername(), "TIMEOUT", ip, "Kick otomatis (Timeout 60 detik)");
                     player.disconnect(Component.text(
                         "§c§l⏱ Waktu Habis!\n" +
                         "§r§7Anda tidak menyelesaikan login dalam 60 detik.\n" +
@@ -343,6 +347,7 @@ public class VelocityListener {
                 plugin.getServer().getPlayer(uuid).ifPresent(player -> {
                     if (plugin.isPendingRules(uuid)) {
                         plugin.getDatabaseManager().setRulesAccepted(uuid);
+                        plugin.logActivity(uuid, player.getUsername(), "RULES_ACCEPTED", player.getRemoteAddress().getAddress().getHostAddress(), "Menyetujui peraturan server");
                         player.sendMessage(Component.text("§aAnda telah menyetujui peraturan server!"));
                         finalizeAuth(player);
                     }
@@ -352,6 +357,7 @@ public class VelocityListener {
                 plugin.getServer().getPlayer(uuid).ifPresent(player -> {
                     if (plugin.isPendingRules(uuid)) {
                         plugin.setPendingRules(uuid, false);
+                        plugin.logActivity(uuid, player.getUsername(), "RULES_DECLINED", player.getRemoteAddress().getAddress().getHostAddress(), "Menolak peraturan server");
                         player.disconnect(Component.text("§cAnda harus menyetujui peraturan untuk bermain!"));
                     }
                 });
@@ -405,6 +411,7 @@ public class VelocityListener {
             
             boolean success = plugin.register(uuid, player.getUsername(), password);
             if (success) {
+                plugin.logActivity(uuid, player.getUsername(), "REGISTER", player.getRemoteAddress().getAddress().getHostAddress(), "Registrasi GUI berhasil");
                 player.sendMessage(Component.text("§a§lNaturalAuth §r§aRegistrasi berhasil!"));
                 
                 // Open Email Link Prompt
@@ -422,6 +429,7 @@ public class VelocityListener {
                     }
                 }).delay(500, TimeUnit.MILLISECONDS).schedule();
             } else {
+                plugin.logActivity(uuid, player.getUsername(), "REGISTER_FAILED", player.getRemoteAddress().getAddress().getHostAddress(), "Registrasi gagal");
                 sendAuthStatusToPaper(player, false, "Registrasi gagal, coba lagi!");
             }
         } else {
@@ -436,6 +444,7 @@ public class VelocityListener {
             if (plugin.verifyPassword(player.getUsername(), password)) {
                 loginAttempts.remove(uuid);
                 loginCooldowns.remove(uuid);
+                plugin.logActivity(uuid, player.getUsername(), "LOGIN", player.getRemoteAddress().getAddress().getHostAddress(), "Login GUI berhasil");
                 player.sendMessage(Component.text("§aLogin berhasil!"));
                 handlePasswordVerified(player);
             } else {
@@ -444,12 +453,14 @@ public class VelocityListener {
                 if (remaining <= 0) {
                     loginAttempts.remove(uuid);
                     loginCooldowns.put(uuid, System.currentTimeMillis() + COOLDOWN_DURATION_MS);
+                    plugin.logActivity(uuid, player.getUsername(), "BRUTE_FORCE", player.getRemoteAddress().getAddress().getHostAddress(), "Terlalu banyak percobaan gagal (GUI)");
                     player.disconnect(Component.text(
                         "§c§l\uD83D\uDEAB Terlalu Banyak Percobaan!\n" +
                         "§r§7Anda gagal login sebanyak " + MAX_LOGIN_ATTEMPTS + " kali.\n" +
                         "§aSilakan coba kembali dalam 60 detik."
                     ));
                 } else {
+                    plugin.logActivity(uuid, player.getUsername(), "LOGIN_FAILED", player.getRemoteAddress().getAddress().getHostAddress(), "Password GUI salah (" + attempts + "/" + MAX_LOGIN_ATTEMPTS + ")");
                     sendAuthStatusToPaper(player, false, "Password salah! (" + attempts + "/" + MAX_LOGIN_ATTEMPTS + " percobaan)");
                 }
             }
@@ -475,6 +486,7 @@ public class VelocityListener {
         if (plugin.verifyPassword(player.getUsername(), password)) {
             loginAttempts.remove(uuid);
             loginCooldowns.remove(uuid);
+            plugin.logActivity(uuid, player.getUsername(), "LOGIN", player.getRemoteAddress().getAddress().getHostAddress(), "Login Command berhasil");
             player.sendMessage(Component.text("§a§lNaturalAuth §r§aLogin berhasil!"));
             handlePasswordVerified(player);
         } else {
@@ -483,12 +495,14 @@ public class VelocityListener {
             if (remaining <= 0) {
                 loginAttempts.remove(uuid);
                 loginCooldowns.put(uuid, System.currentTimeMillis() + COOLDOWN_DURATION_MS);
+                plugin.logActivity(uuid, player.getUsername(), "BRUTE_FORCE", player.getRemoteAddress().getAddress().getHostAddress(), "Terlalu banyak percobaan gagal (Command)");
                 player.disconnect(Component.text(
                     "§c§l\uD83D\uDEAB Terlalu Banyak Percobaan!\n" +
                     "§r§7Anda gagal login sebanyak " + MAX_LOGIN_ATTEMPTS + " kali.\n" +
                     "§aSilakan coba kembali dalam 60 detik."
                 ));
             } else {
+                plugin.logActivity(uuid, player.getUsername(), "LOGIN_FAILED", player.getRemoteAddress().getAddress().getHostAddress(), "Password Command salah (" + attempts + "/" + MAX_LOGIN_ATTEMPTS + ")");
                 String warningColor = remaining == 1 ? "§c§l" : "§e";
                 player.sendMessage(Component.text(
                     "§cPassword salah! §7(Percobaan §c" + attempts + "§7/§c" + MAX_LOGIN_ATTEMPTS + "§7) " +
@@ -638,6 +652,7 @@ public class VelocityListener {
             String otpCode = String.format("%06d", new java.util.Random().nextInt(1000000));
             plugin.getDatabaseManager().setEmail(uuid, email);
             plugin.getDatabaseManager().saveOTP(uuid, email, otpCode);
+            plugin.logActivity(uuid, player.getUsername(), "OTP_REQUESTED", player.getRemoteAddress().getAddress().getHostAddress(), "Mengajukan penautan email ke: " + email);
             
             player.sendMessage(Component.text("§a§lNaturalAuth §r§aMengirimkan kode OTP ke email Anda..."));
             plugin.sendOtpEmail(player.getUsername(), email, otpCode).thenAccept(success -> {
@@ -700,9 +715,11 @@ public class VelocityListener {
 
         if (activeOtp.equals(typedOtp.trim())) {
             plugin.getDatabaseManager().deleteOTP(uuid);
+            plugin.logActivity(uuid, player.getUsername(), "OTP_VERIFIED", player.getRemoteAddress().getAddress().getHostAddress(), "Email berhasil ditautkan: " + email);
             player.sendMessage(Component.text("§a§lNaturalAuth §r§aVerifikasi OTP berhasil! Email Anda telah ditautkan."));
             handlePasswordVerified(player);
         } else {
+            plugin.logActivity(uuid, player.getUsername(), "OTP_FAILED", player.getRemoteAddress().getAddress().getHostAddress(), "Input OTP salah untuk email: " + email);
             sendAuthStatusToPaper(player, false, "OTP salah!");
         }
     }

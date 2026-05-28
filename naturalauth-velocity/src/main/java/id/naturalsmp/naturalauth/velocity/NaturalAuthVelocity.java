@@ -437,4 +437,10 @@ public class NaturalAuthVelocity {
                     return false;
                 });
     }
+
+    public void logActivity(UUID uuid, String username, String action, String ip, String details) {
+        server.getScheduler().buildTask(this, () -> {
+            databaseManager.logActivity(uuid, username, action, ip, details);
+        }).schedule();
+    }
 }
