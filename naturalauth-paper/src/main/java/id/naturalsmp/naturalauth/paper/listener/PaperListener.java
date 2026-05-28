@@ -668,7 +668,7 @@ public class PaperListener implements Listener, PluginMessageListener {
 
             // Aesthetic particles around the player
             Location loc = player.getLocation().add(0, 1.0, 0);
-            player.spawnParticle(Particle.SPELL_WITCH, loc, 3, 0.4, 0.5, 0.4, 0.01);
+            player.spawnParticle(Particle.WITCH, loc, 3, 0.4, 0.5, 0.4, 0.01);
             player.spawnParticle(Particle.PORTAL,     loc, 5, 0.3, 0.8, 0.3, 0.05);
 
             // Amethyst chime every 4 seconds (80 ticks at 20 TPS)
