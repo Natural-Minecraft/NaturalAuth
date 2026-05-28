@@ -230,10 +230,15 @@ public class VelocityListener {
         String lobbyName = plugin.getConfig().getTable("servers").getString("lobby", "lobby");
         if (event.getServer().getServerInfo().getName().equalsIgnoreCase(lobbyName)) {
             if (plugin.isAuthenticated(uuid)) {
-                // Player connected to lobby already authenticated -> enter Limbo mode!
-                plugin.registerLimboPlayer(uuid);
-                sendLimboStatusToPaper(player, true);
+                if (!plugin.isSurvivalOnline()) {
+                    // Player connected to lobby already authenticated and survival is offline -> enter Limbo mode!
+                    plugin.registerLimboPlayer(uuid);
+                    sendLimboStatusToPaper(player, true);
+                }
             }
+        } else {
+            // Player connected to a server that is not Lobby -> remove from Limbo if they were in it
+            plugin.unregisterLimboPlayer(uuid);
         }
     }
 
@@ -323,7 +328,15 @@ public class VelocityListener {
                         } else {
                             sendOpenRulesToPaper(player);
                         }
-                    } else if (!plugin.isAuthenticated(uuid)) {
+                    } else if (plugin.isAuthenticated(uuid)) {
+                        if (plugin.getLimboPlayers().contains(uuid)) {
+                            plugin.getLogger().info("[NaturalAuth-Debug] Player " + player.getUsername() + " is already authenticated and in Limbo — sending PACKET_LIMBO_STATUS (true).");
+                            sendLimboStatusToPaper(player, true);
+                        } else {
+                            plugin.getLogger().info("[NaturalAuth-Debug] Player " + player.getUsername() + " is already authenticated and not in Limbo — sending PACKET_AUTH_STATUS (success).");
+                            sendAuthStatusToPaper(player, true, "Already Authenticated");
+                        }
+                    } else {
                         if (plugin.isPendingRules(uuid)) {
                             // Re-open rules screen if they are pending rules (e.g. after GUI close)
                             if (!FloodgateHelper.isFloodgatePlayer(uuid)) {

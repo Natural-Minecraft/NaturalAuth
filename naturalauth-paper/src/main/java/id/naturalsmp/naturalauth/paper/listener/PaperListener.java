@@ -117,15 +117,21 @@ public class PaperListener implements Listener, PluginMessageListener {
                         activeGuiType.remove(uuid);
                         activePrompt.remove(uuid);
                         stopAuthUI(uuid);
-                        target.sendMessage("§a§lNaturalAuth §r§aLogin berhasil!");
                         target.closeInventory();
-                        // Success Title & Sound
-                        target.showTitle(Title.title(
-                            Component.text("§a✔ Login Berhasil!"),
-                            Component.text("§7Selamat datang kembali, §f" + target.getName() + "§7!"),
-                            Title.Times.times(Duration.ofMillis(200), Duration.ofMillis(2500), Duration.ofMillis(500))
-                        ));
-                        target.playSound(target.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.2f);
+                        
+                        if ("Already Authenticated".equalsIgnoreCase(msg)) {
+                            target.sendMessage("§a§lNaturalAuth §r§aSesi aktif terdeteksi. Anda telah terautentikasi otomatis.");
+                        } else {
+                            target.sendMessage("§a§lNaturalAuth §r§aLogin berhasil!");
+                            // Success Title & Sound
+                            target.showTitle(Title.title(
+                                Component.text("§a✔ Login Berhasil!"),
+                                Component.text("§7Selamat datang kembali, §f" + target.getName() + "§7!"),
+                                Title.Times.times(Duration.ofMillis(200), Duration.ofMillis(2500), Duration.ofMillis(500))
+                            ));
+                            target.playSound(target.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.2f);
+                        }
+                        
                         // Force SURVIVAL gamemode + give selector in lobby mode
                         if (plugin.isLobbyMode()) {
                             target.setGameMode(GameMode.SURVIVAL);
