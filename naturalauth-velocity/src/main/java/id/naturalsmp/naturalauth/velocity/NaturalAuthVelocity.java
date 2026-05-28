@@ -75,6 +75,11 @@ public class NaturalAuthVelocity {
     // Keep track of the success target (Survival) server's online status
     private boolean survivalOnline = true;
 
+    // Limbo/Waiting room status tracking
+    private final Set<UUID> limboPlayers = ConcurrentHashMap.newKeySet();
+    private com.velocitypowered.api.scheduler.ScheduledTask survivalPingTask = null;
+    private boolean limboCheckSpeedActive = false;
+
     @Inject
     public NaturalAuthVelocity(ProxyServer server, Logger logger, @DataDirectory Path dataDirectory) {
         this.server = server;
@@ -162,7 +167,7 @@ public class NaturalAuthVelocity {
 
         // Start Survival server online status checking task (runs immediately, then every 5 minutes)
         checkSurvivalStatus();
-        server.getScheduler().buildTask(this, this::checkSurvivalStatus)
+        survivalPingTask = server.getScheduler().buildTask(this, this::checkSurvivalStatus)
                 .repeat(5, TimeUnit.MINUTES)
                 .schedule();
 
@@ -234,6 +239,37 @@ public class NaturalAuthVelocity {
     public VelocityListener getVelocityListener() { return velocityListener; }
 
     // ───── Survival Status Checking ──────────────────────────────────────────
+    
+    public Set<UUID> getLimboPlayers() {
+        return limboPlayers;
+    }
+
+    public void registerLimboPlayer(UUID uuid) {
+        limboPlayers.add(uuid);
+        updateSurvivalCheckInterval();
+    }
+
+    public void unregisterLimboPlayer(UUID uuid) {
+        limboPlayers.remove(uuid);
+        updateSurvivalCheckInterval();
+    }
+
+    public void updateSurvivalCheckInterval() {
+        boolean needFast = !limboPlayers.isEmpty();
+        if (needFast != limboCheckSpeedActive) {
+            limboCheckSpeedActive = needFast;
+            if (survivalPingTask != null) {
+                survivalPingTask.cancel();
+            }
+            long interval = needFast ? 8L : 300L;
+            
+            logger.info("Survival server check interval dynamically updated. Fast mode active: " + needFast + " (" + interval + "s)");
+            
+            survivalPingTask = server.getScheduler().buildTask(this, this::checkSurvivalStatus)
+                    .repeat(interval, TimeUnit.SECONDS)
+                    .schedule();
+        }
+    }
 
     public boolean isSurvivalOnline() {
         return survivalOnline;
@@ -251,7 +287,7 @@ public class NaturalAuthVelocity {
                                 logger.info("Server Survival (" + destinationName + ") is now ONLINE.");
                                 redirectAuthenticatedPlayers();
                             } else {
-                                logger.warn("Server Survival (" + destinationName + ") is now OFFLINE. Connection attempts are paused (status pings scheduled every 5 minutes).");
+                                logger.warn("Server Survival (" + destinationName + ") is now OFFLINE. Connection attempts are paused (status pings scheduled dynamically).");
                             }
                         }
                         return null;
@@ -272,8 +308,20 @@ public class NaturalAuthVelocity {
                 if (isAuthenticated(player.getUniqueId())) {
                     player.getCurrentServer().ifPresent(current -> {
                         if (current.getServerInfo().getName().equalsIgnoreCase(lobbyName)) {
-                            player.sendMessage(Component.text("§a§l[!] §r§aServer Survival sudah online! Mengalihkan Anda secara otomatis..."));
-                            player.createConnectionRequest(survival).fireAndForget();
+                            // Tell Paper companion plugin that reconnect warp is active (plays aesthetic title + sounds)
+                            if (velocityListener != null) {
+                                velocityListener.sendReconnectReadyToPaper(player);
+                            }
+                            
+                            // Remove from limbo
+                            unregisterLimboPlayer(player.getUniqueId());
+                            
+                            // Delay redirection by 1.2s to let visual title play beautifully
+                            server.getScheduler().buildTask(this, () -> {
+                                if (player.isActive()) {
+                                    player.createConnectionRequest(survival).fireAndForget();
+                                }
+                            }).delay(1200, TimeUnit.MILLISECONDS).schedule();
                         }
                     });
                 }

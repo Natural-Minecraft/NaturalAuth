@@ -9,6 +9,8 @@ import com.velocitypowered.api.event.connection.PostLoginEvent;
 import com.velocitypowered.api.event.connection.PreLoginEvent;
 import com.velocitypowered.api.event.player.PlayerChatEvent;
 import com.velocitypowered.api.event.player.ServerPreConnectEvent;
+import com.velocitypowered.api.event.player.KickedFromServerEvent;
+import com.velocitypowered.api.event.player.ServerConnectedEvent;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ServerConnection;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
@@ -203,6 +205,35 @@ public class VelocityListener {
     }
 
     @Subscribe
+    public void onKickedFromServer(KickedFromServerEvent event) {
+        Player player = event.getPlayer();
+        UUID uuid = player.getUniqueId();
+        if (plugin.isAuthenticated(uuid)) {
+            String lobbyName = plugin.getConfig().getTable("servers").getString("lobby", "lobby");
+            RegisteredServer lobby = plugin.getServer().getServer(lobbyName).orElse(null);
+            if (lobby != null) {
+                // Prevent disconnect by redirecting silently to Lobby (Limbo Waiting Room)
+                event.setResult(KickedFromServerEvent.RedirectPlayer.create(lobby));
+                player.sendMessage(Component.text("§c§l[!] §r§cKoneksi ke server utama terputus. Mengalihkan Anda ke ruang tunggu (Limbo)..."));
+            }
+        }
+    }
+
+    @Subscribe
+    public void onServerConnected(ServerConnectedEvent event) {
+        Player player = event.getPlayer();
+        UUID uuid = player.getUniqueId();
+        String lobbyName = plugin.getConfig().getTable("servers").getString("lobby", "lobby");
+        if (event.getServer().getServerInfo().getName().equalsIgnoreCase(lobbyName)) {
+            if (plugin.isAuthenticated(uuid)) {
+                // Player connected to lobby already authenticated -> enter Limbo mode!
+                plugin.registerLimboPlayer(uuid);
+                sendLimboStatusToPaper(player, true);
+            }
+        }
+    }
+
+    @Subscribe
     public void onDisconnect(DisconnectEvent event) {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
@@ -213,6 +244,7 @@ public class VelocityListener {
         pendingAutoRulesPlayers.remove(uuid);
         loginAttempts.remove(uuid);
         loginCooldowns.remove(uuid);
+        plugin.unregisterLimboPlayer(uuid);
     }
 
     @Subscribe
@@ -564,6 +596,33 @@ public class VelocityListener {
             sendPluginMessage(player, baos.toByteArray());
         } catch (IOException e) {
             plugin.getLogger().error("Failed to construct PACKET_AUTH_STATUS", e);
+        }
+    }
+
+    public void sendLimboStatusToPaper(Player player, boolean isLimbo) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             DataOutputStream dos = new DataOutputStream(baos)) {
+
+            dos.writeByte(AuthBridgeProtocol.PACKET_LIMBO_STATUS);
+            dos.writeUTF(player.getUniqueId().toString());
+            dos.writeBoolean(isLimbo);
+
+            sendPluginMessage(player, baos.toByteArray());
+        } catch (IOException e) {
+            plugin.getLogger().error("Failed to construct PACKET_LIMBO_STATUS", e);
+        }
+    }
+
+    public void sendReconnectReadyToPaper(Player player) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             DataOutputStream dos = new DataOutputStream(baos)) {
+
+            dos.writeByte(AuthBridgeProtocol.PACKET_RECONNECT_READY);
+            dos.writeUTF(player.getUniqueId().toString());
+
+            sendPluginMessage(player, baos.toByteArray());
+        } catch (IOException e) {
+            plugin.getLogger().error("Failed to construct PACKET_RECONNECT_READY", e);
         }
     }
 

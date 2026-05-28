@@ -277,7 +277,39 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
 
     private void handleWhois(Invocation invocation, String[] args) {
         if (!(invocation.source() instanceof Player adminPlayer)) {
-            invocation.source().sendMessage(Component.text("§cCommand ini hanya dapat digunakan oleh player in-game!"));
+            // Executed by Console (Terminal)
+            if (args.length < 3) {
+                invocation.source().sendMessage(Component.text("§cGunakan: /na admin whois <player>"));
+                return;
+            }
+            String targetUsername = args[2];
+            java.util.Map<String, String> info = plugin.getDatabaseManager().getUserInfo(targetUsername);
+            
+            invocation.source().sendMessage(Component.text("§8§l========================================="));
+            invocation.source().sendMessage(Component.text("§b§l⚡ NaturalAuth Console Whois: §f§l" + targetUsername + " ⚡"));
+            invocation.source().sendMessage(Component.text("§8§l========================================="));
+            
+            Optional<Player> onlineTarget = plugin.getServer().getPlayer(targetUsername);
+            if (onlineTarget.isPresent()) {
+                Player p = onlineTarget.get();
+                invocation.source().sendMessage(Component.text("§7• §bStatus: §a§lONLINE"));
+                invocation.source().sendMessage(Component.text("§7• §bServer: §f" + p.getCurrentServer().map(c -> c.getServerInfo().getName()).orElse("Unknown")));
+                invocation.source().sendMessage(Component.text("§7• §bIP Address: §f" + p.getRemoteAddress().getAddress().getHostAddress()));
+                invocation.source().sendMessage(Component.text("§7• §bPing: §f" + p.getPing() + " ms"));
+            } else {
+                invocation.source().sendMessage(Component.text("§7• §bStatus: §c§lOFFLINE"));
+            }
+            
+            if (info != null) {
+                invocation.source().sendMessage(Component.text("§7• §bUUID: §f" + info.get("uuid")));
+                invocation.source().sendMessage(Component.text("§7• §bPremium Account: §f" + ("1".equals(info.get("premium")) ? "§aYes" : "§cNo")));
+                invocation.source().sendMessage(Component.text("§7• §bEmail Terkait: §f" + (info.get("email") != null ? info.get("email") : "§7(belum dikaitkan)")));
+                invocation.source().sendMessage(Component.text("§7• §bNo. Telepon: §f" + (info.get("phone_number") != null ? info.get("phone_number") : "§7N/A")));
+                invocation.source().sendMessage(Component.text("§7• §bTanggal Daftar: §f" + info.get("created_at")));
+            } else {
+                invocation.source().sendMessage(Component.text("§cUser '" + targetUsername + "' tidak ditemukan di database!"));
+            }
+            invocation.source().sendMessage(Component.text("§8§l========================================="));
             return;
         }
 

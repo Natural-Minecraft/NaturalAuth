@@ -16,11 +16,13 @@ import java.nio.file.Files;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.bukkit.GameMode;
 
 public class NaturalAuthPaper extends JavaPlugin {
 
     private final Set<UUID> authenticatedPlayers = ConcurrentHashMap.newKeySet();
     private final Set<UUID> pendingRulesPlayers = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> limboPlayers = ConcurrentHashMap.newKeySet();
     private PaperListener listener;
     private Location spawnLocation;
     private Location schematicPasteLocation;
@@ -38,6 +40,8 @@ public class NaturalAuthPaper extends JavaPlugin {
 
         // Register plugin messaging channels
         getServer().getMessenger().registerOutgoingPluginChannel(this, AuthBridgeProtocol.FULL_CHANNEL);
+        // Register BungeeCord channel so we can transfer players to other proxy servers
+        getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
         this.listener = new PaperListener(this);
         getServer().getMessenger().registerIncomingPluginChannel(this, AuthBridgeProtocol.FULL_CHANNEL, listener);
 
@@ -196,6 +200,22 @@ public class NaturalAuthPaper extends JavaPlugin {
 
     public Set<UUID> getPendingRulesPlayers() {
         return pendingRulesPlayers;
+    }
+
+    public Set<UUID> getLimboPlayers() {
+        return limboPlayers;
+    }
+
+    public boolean isInLimbo(UUID uuid) {
+        return limboPlayers.contains(uuid);
+    }
+
+    public void setLimbo(UUID uuid, boolean limbo) {
+        if (limbo) {
+            limboPlayers.add(uuid);
+        } else {
+            limboPlayers.remove(uuid);
+        }
     }
 
     public Location getSpawnLocation() {

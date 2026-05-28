@@ -12,6 +12,8 @@ public class AuthBridgeProtocol {
     public static final byte PACKET_OPEN_EMAIL_LINK = 9; // Velocity → Paper: open email linking GUI (UUID)
     public static final byte PACKET_OPEN_OTP_GUI    = 10; // Velocity → Paper: open OTP GUI (UUID, prompt)
     public static final byte PACKET_WHOIS_REQUEST   = 12; // Velocity → Paper: trigger admin whois GUI (UUID, targetUsername)
+    public static final byte PACKET_LIMBO_STATUS     = 13; // Velocity → Paper: indicate limbo status (UUID, isLimbo: boolean)
+    public static final byte PACKET_RECONNECT_READY  = 14; // Velocity → Paper: server online, warp player (UUID)
 
     // Packet IDs (Paper → Velocity)
     public static final byte PACKET_SUBMIT_PASSWORD  = 2; // Paper → Velocity: player submitted password (UUID, password)
