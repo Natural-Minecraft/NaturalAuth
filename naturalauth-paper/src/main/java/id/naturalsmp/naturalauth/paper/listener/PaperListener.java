@@ -320,10 +320,12 @@ public class PaperListener implements Listener, PluginMessageListener {
         player.removePotionEffect(PotionEffectType.SLOWNESS);
         player.removePotionEffect(PotionEffectType.JUMP_BOOST);
 
-        player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, Integer.MAX_VALUE, 1, false, false));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, Integer.MAX_VALUE, 1, false, false));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, Integer.MAX_VALUE, 255, false, false));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, Integer.MAX_VALUE, 250, false, false));
+        // Parameters: (type, duration, amplifier, ambient=false, particles=false, icon=false)
+        // All 3 last booleans are false → no particles, no potion icon shown on screen
+        player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, Integer.MAX_VALUE, 1, false, false, false));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS,    Integer.MAX_VALUE, 1, false, false, false));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS,     Integer.MAX_VALUE, 255, false, false, false));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST,   Integer.MAX_VALUE, 250, false, false, false));
 
         // Notify Velocity that the player is ready to receive GUI
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
