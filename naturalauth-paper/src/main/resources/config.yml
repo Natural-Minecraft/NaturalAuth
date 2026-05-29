@@ -23,3 +23,7 @@ spawn-location:
   z: 0.5
   yaw: 0.0
   pitch: 0.0
+
+# ItemsAdder Unicode custom logo (leave empty to disable)
+# Example: "\uE001" or "%ia_logo%" (if using PlaceholderAPI to resolve ItemsAdder placeholders)
+LogoRPUnicode: ""

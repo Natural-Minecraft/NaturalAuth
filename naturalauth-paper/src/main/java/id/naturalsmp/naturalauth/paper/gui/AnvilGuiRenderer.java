@@ -44,7 +44,7 @@ public class AnvilGuiRenderer {
 
         new AnvilGUI.Builder()
                 .plugin(plugin)
-                .title("Login - Tulis Password")
+                .title(getFormattedTitle(plugin, player, "Login - Tulis Password"))
                 .text(prompt)
                 .itemLeft(itemLeft)
                 .onClick((slot, stateSnapshot) -> {
@@ -82,7 +82,7 @@ public class AnvilGuiRenderer {
 
         new AnvilGUI.Builder()
                 .plugin(plugin)
-                .title("Daftar - Tulis Password")
+                .title(getFormattedTitle(plugin, player, "Daftar - Tulis Password"))
                 .text(prompt)
                 .itemLeft(itemLeft)
                 .onClick((slot, stateSnapshot) -> {
@@ -127,7 +127,7 @@ public class AnvilGuiRenderer {
 
         new AnvilGUI.Builder()
                 .plugin(plugin)
-                .title("Daftar - Konfirmasi Password")
+                .title(getFormattedTitle(plugin, player, "Daftar - Konfirmasi Password"))
                 .text(prompt)
                 .itemLeft(itemLeft)
                 .onClick((slot, stateSnapshot) -> {
@@ -187,7 +187,7 @@ public class AnvilGuiRenderer {
 
         new AnvilGUI.Builder()
                 .plugin(plugin)
-                .title("Kaitkan Email")
+                .title(getFormattedTitle(plugin, player, "Kaitkan Email"))
                 .text("contoh@email.com")
                 .itemLeft(itemLeft)
                 .onClick((slot, stateSnapshot) -> {
@@ -221,7 +221,7 @@ public class AnvilGuiRenderer {
 
         new AnvilGUI.Builder()
                 .plugin(plugin)
-                .title("Verifikasi OTP")
+                .title(getFormattedTitle(plugin, player, "Verifikasi OTP"))
                 .text("000000")
                 .itemLeft(itemLeft)
                 .onClick((slot, stateSnapshot) -> {
@@ -281,5 +281,22 @@ public class AnvilGuiRenderer {
             plugin.getLogger().severe("Failed to send PACKET_SUBMIT_OTP to Velocity!");
             e.printStackTrace();
         }
+    }
+
+    private static String getFormattedTitle(NaturalAuthPaper plugin, Player player, String defaultTitle) {
+        String logo = plugin.getConfig().getString("LogoRPUnicode", "");
+        if (logo == null || logo.isEmpty()) {
+            return defaultTitle;
+        }
+
+        // Resolve placeholders if PlaceholderAPI is enabled
+        if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
+            logo = me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, logo);
+        }
+
+        // Translate color codes
+        logo = org.bukkit.ChatColor.translateAlternateColorCodes('&', logo);
+
+        return logo + " " + defaultTitle;
     }
 }

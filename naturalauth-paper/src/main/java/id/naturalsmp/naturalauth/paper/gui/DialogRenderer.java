@@ -22,6 +22,7 @@ import org.bukkit.entity.Player;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 public class DialogRenderer {
@@ -33,6 +34,16 @@ public class DialogRenderer {
         } catch (ClassNotFoundException e) {
             return false;
         }
+    }
+
+    /**
+     * Returns a DialogBody containing the LogoRPUnicode from config,
+     * or null if the config value is empty/not set.
+     */
+    private static DialogBody getLogoBody(NaturalAuthPaper plugin) {
+        String logo = plugin.getConfig().getString("LogoRPUnicode", "");
+        if (logo == null || logo.isEmpty()) return null;
+        return DialogBody.plainMessage(Component.text(logo));
     }
 
     public static void openDialogGUI(NaturalAuthPaper plugin, Player player, String type, String prompt) {
@@ -96,12 +107,15 @@ public class DialogRenderer {
                 }, ClickCallback.Options.builder().build()))
                 .build();
 
+        List<DialogBody> loginBody = new ArrayList<>();
+        DialogBody logoBody = getLogoBody(plugin);
+        if (logoBody != null) loginBody.add(logoBody);
+        loginBody.add(DialogBody.plainMessage(Component.text("§e" + prompt)));
+
         Dialog dialog = Dialog.create(builder -> builder.empty()
                 .base(DialogBase.builder(Component.text("Login"))
                         .canCloseWithEscape(false)
-                        .body(List.of(
-                                DialogBody.plainMessage(Component.text("§e" + prompt))
-                        ))
+                        .body(loginBody)
                         .inputs(List.of(passwordInput))
                         .build())
                 .type(DialogType.multiAction(List.of(signInButton, forgotPasswordButton), quitButton, 2))
@@ -164,12 +178,15 @@ public class DialogRenderer {
                 }, ClickCallback.Options.builder().build()))
                 .build();
 
+        List<DialogBody> registerBody = new ArrayList<>();
+        DialogBody logoBodyReg = getLogoBody(plugin);
+        if (logoBodyReg != null) registerBody.add(logoBodyReg);
+        registerBody.add(DialogBody.plainMessage(Component.text("§e" + prompt)));
+
         Dialog dialog = Dialog.create(builder -> builder.empty()
                 .base(DialogBase.builder(Component.text("Register"))
                         .canCloseWithEscape(false)
-                        .body(List.of(
-                                DialogBody.plainMessage(Component.text("§e" + prompt))
-                        ))
+                        .body(registerBody)
                         .inputs(List.of(passwordInput, confirmInput))
                         .build())
                 .type(DialogType.multiAction(List.of(registerButton), quitButton, 1))
