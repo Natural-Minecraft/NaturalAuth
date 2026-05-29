@@ -251,13 +251,25 @@ public class VelocityListener {
     public void onDisconnect(DisconnectEvent event) {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
+
+        // Explicitly clean up all player-related collections upon disconnection to prevent memory leaks
+        
+        // 1. Remove from proxy-wide authenticated & pending rules sets
         plugin.setAuthenticated(uuid, false);
         plugin.setPendingRules(uuid, false);
+        
+        // 2. Remove join timing tracked for timeout checks
         plugin.getJoinTimes().remove(uuid);
+        
+        // 3. Remove from session auto-login or auto-rules tracking
         pendingAutoLoginPlayers.remove(uuid);
         pendingAutoRulesPlayers.remove(uuid);
+        
+        // 4. Remove from brute-force attempts and cooldown mappings
         loginAttempts.remove(uuid);
         loginCooldowns.remove(uuid);
+        
+        // 5. Unregister from Virtual Limbo if present
         plugin.unregisterLimboPlayer(uuid);
     }
 
@@ -428,53 +440,100 @@ public class VelocityListener {
     }
 
     private void handlePasswordSubmission(Player player, String password) {
-        UUID uuid = player.getUniqueId();
-        boolean registered = plugin.getDatabaseManager().isRegistered(player.getUsername());
+        // Run database queries and password checking asynchronously to prevent proxy freezes
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            UUID uuid = player.getUniqueId();
+            boolean registered = plugin.getDatabaseManager().isRegistered(player.getUsername());
 
-        if (!registered) {
-            // Registering new account
-            if (password == null || password.length() < 4) {
-                sendAuthStatusToPaper(player, false, "Password minimal 4 karakter!");
-                return;
-            }
-            
-            boolean success = plugin.register(uuid, player.getUsername(), password);
-            if (success) {
-                plugin.logActivity(uuid, player.getUsername(), "REGISTER", player.getRemoteAddress().getAddress().getHostAddress(), "Registrasi GUI berhasil");
-                player.sendMessage(Component.text("§a§lNaturalAuth §r§aRegistrasi berhasil!"));
+            if (!registered) {
+                // Registering new account
+                if (password == null || password.length() < 4) {
+                    sendAuthStatusToPaper(player, false, "Password minimal 4 karakter!");
+                    return;
+                }
                 
-                // Open Email Link Prompt
-                plugin.getServer().getScheduler().buildTask(plugin, () -> {
-                    if (player.isActive()) {
-                        if (FloodgateHelper.isFloodgatePlayer(uuid)) {
-                            if (bedrockAuthProvider != null) {
-                                bedrockAuthProvider.openEmailLinkForm(player);
+                boolean success = plugin.register(uuid, player.getUsername(), password);
+                if (success) {
+                    plugin.logActivity(uuid, player.getUsername(), "REGISTER", player.getRemoteAddress().getAddress().getHostAddress(), "Registrasi GUI berhasil");
+                    player.sendMessage(Component.text("§a§lNaturalAuth §r§aRegistrasi berhasil!"));
+                    
+                    // Open Email Link Prompt
+                    plugin.getServer().getScheduler().buildTask(plugin, () -> {
+                        if (player.isActive()) {
+                            if (FloodgateHelper.isFloodgatePlayer(uuid)) {
+                                if (bedrockAuthProvider != null) {
+                                    bedrockAuthProvider.openEmailLinkForm(player);
+                                } else {
+                                    handlePasswordVerified(player);
+                                }
                             } else {
-                                handlePasswordVerified(player);
+                                sendOpenEmailLinkToPaper(player);
                             }
-                        } else {
-                            sendOpenEmailLinkToPaper(player);
                         }
-                    }
-                }).delay(500, TimeUnit.MILLISECONDS).schedule();
+                    }).delay(500, TimeUnit.MILLISECONDS).schedule();
+                } else {
+                    plugin.logActivity(uuid, player.getUsername(), "REGISTER_FAILED", player.getRemoteAddress().getAddress().getHostAddress(), "Registrasi gagal");
+                    sendAuthStatusToPaper(player, false, "Registrasi gagal, coba lagi!");
+                }
             } else {
-                plugin.logActivity(uuid, player.getUsername(), "REGISTER_FAILED", player.getRemoteAddress().getAddress().getHostAddress(), "Registrasi gagal");
-                sendAuthStatusToPaper(player, false, "Registrasi gagal, coba lagi!");
+                // Logging in — check cooldown first
+                Long cooldownEnd = loginCooldowns.get(uuid);
+                if (cooldownEnd != null && System.currentTimeMillis() < cooldownEnd) {
+                    long remainingSeconds = (cooldownEnd - System.currentTimeMillis()) / 1000 + 1;
+                    sendAuthStatusToPaper(player, false, "Terlalu banyak percobaan! Coba lagi dalam " + remainingSeconds + "s.");
+                    return;
+                }
+
+                if (plugin.verifyPassword(player.getUsername(), password)) {
+                    loginAttempts.remove(uuid);
+                    loginCooldowns.remove(uuid);
+                    plugin.logActivity(uuid, player.getUsername(), "LOGIN", player.getRemoteAddress().getAddress().getHostAddress(), "Login GUI berhasil");
+                    player.sendMessage(Component.text("§aLogin berhasil!"));
+                    handlePasswordVerified(player);
+                } else {
+                    int attempts = loginAttempts.merge(uuid, 1, Integer::sum);
+                    int remaining = MAX_LOGIN_ATTEMPTS - attempts;
+                    if (remaining <= 0) {
+                        loginAttempts.remove(uuid);
+                        loginCooldowns.put(uuid, System.currentTimeMillis() + COOLDOWN_DURATION_MS);
+                        plugin.logActivity(uuid, player.getUsername(), "BRUTE_FORCE", player.getRemoteAddress().getAddress().getHostAddress(), "Terlalu banyak percobaan gagal (GUI)");
+                        player.disconnect(Component.text(
+                            "§c§l\uD83D\uDEAB Terlalu Banyak Percobaan!\n" +
+                            "§r§7Anda gagal login sebanyak " + MAX_LOGIN_ATTEMPTS + " kali.\n" +
+                            "§aSilakan coba kembali dalam 60 detik."
+                        ));
+                    } else {
+                        plugin.logActivity(uuid, player.getUsername(), "LOGIN_FAILED", player.getRemoteAddress().getAddress().getHostAddress(), "Password GUI salah (" + attempts + "/" + MAX_LOGIN_ATTEMPTS + ")");
+                        sendAuthStatusToPaper(player, false, "Password salah! (" + attempts + "/" + MAX_LOGIN_ATTEMPTS + " percobaan)");
+                    }
+                }
             }
-        } else {
-            // Logging in — check cooldown first
+        });
+    }
+
+    /**
+     * Text-based login via /login command — includes brute force protection.
+     */
+    public void handleTextLogin(Player player, String password) {
+        // Run database queries and password checking asynchronously to prevent proxy freezes
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            UUID uuid = player.getUniqueId();
+
+            // Check cooldown
             Long cooldownEnd = loginCooldowns.get(uuid);
             if (cooldownEnd != null && System.currentTimeMillis() < cooldownEnd) {
                 long remainingSeconds = (cooldownEnd - System.currentTimeMillis()) / 1000 + 1;
-                sendAuthStatusToPaper(player, false, "Terlalu banyak percobaan! Coba lagi dalam " + remainingSeconds + "s.");
+                player.sendMessage(Component.text(
+                    "§c§lTerlalu banyak percobaan gagal! §r§cCoba lagi dalam §e" + remainingSeconds + " §cdetik."
+                ));
                 return;
             }
 
             if (plugin.verifyPassword(player.getUsername(), password)) {
                 loginAttempts.remove(uuid);
                 loginCooldowns.remove(uuid);
-                plugin.logActivity(uuid, player.getUsername(), "LOGIN", player.getRemoteAddress().getAddress().getHostAddress(), "Login GUI berhasil");
-                player.sendMessage(Component.text("§aLogin berhasil!"));
+                plugin.logActivity(uuid, player.getUsername(), "LOGIN", player.getRemoteAddress().getAddress().getHostAddress(), "Login Command berhasil");
+                player.sendMessage(Component.text("§a§lNaturalAuth §r§aLogin berhasil!"));
                 handlePasswordVerified(player);
             } else {
                 int attempts = loginAttempts.merge(uuid, 1, Integer::sum);
@@ -482,63 +541,22 @@ public class VelocityListener {
                 if (remaining <= 0) {
                     loginAttempts.remove(uuid);
                     loginCooldowns.put(uuid, System.currentTimeMillis() + COOLDOWN_DURATION_MS);
-                    plugin.logActivity(uuid, player.getUsername(), "BRUTE_FORCE", player.getRemoteAddress().getAddress().getHostAddress(), "Terlalu banyak percobaan gagal (GUI)");
+                    plugin.logActivity(uuid, player.getUsername(), "BRUTE_FORCE", player.getRemoteAddress().getAddress().getHostAddress(), "Terlalu banyak percobaan gagal (Command)");
                     player.disconnect(Component.text(
                         "§c§l\uD83D\uDEAB Terlalu Banyak Percobaan!\n" +
                         "§r§7Anda gagal login sebanyak " + MAX_LOGIN_ATTEMPTS + " kali.\n" +
                         "§aSilakan coba kembali dalam 60 detik."
                     ));
                 } else {
-                    plugin.logActivity(uuid, player.getUsername(), "LOGIN_FAILED", player.getRemoteAddress().getAddress().getHostAddress(), "Password GUI salah (" + attempts + "/" + MAX_LOGIN_ATTEMPTS + ")");
-                    sendAuthStatusToPaper(player, false, "Password salah! (" + attempts + "/" + MAX_LOGIN_ATTEMPTS + " percobaan)");
+                    plugin.logActivity(uuid, player.getUsername(), "LOGIN_FAILED", player.getRemoteAddress().getAddress().getHostAddress(), "Password Command salah (" + attempts + "/" + MAX_LOGIN_ATTEMPTS + ")");
+                    String warningColor = remaining == 1 ? "§c§l" : "§e";
+                    player.sendMessage(Component.text(
+                        "§cPassword salah! §7(Percobaan §c" + attempts + "§7/§c" + MAX_LOGIN_ATTEMPTS + "§7) " +
+                        warningColor + (remaining == 1 ? "— Percobaan terakhir!" : "— " + remaining + " sisa")
+                    ));
                 }
             }
-        }
-    }
-
-    /**
-     * Text-based login via /login command — includes brute force protection.
-     */
-    public void handleTextLogin(Player player, String password) {
-        UUID uuid = player.getUniqueId();
-
-        // Check cooldown
-        Long cooldownEnd = loginCooldowns.get(uuid);
-        if (cooldownEnd != null && System.currentTimeMillis() < cooldownEnd) {
-            long remainingSeconds = (cooldownEnd - System.currentTimeMillis()) / 1000 + 1;
-            player.sendMessage(Component.text(
-                "§c§lTerlalu banyak percobaan gagal! §r§cCoba lagi dalam §e" + remainingSeconds + " §cdetik."
-            ));
-            return;
-        }
-
-        if (plugin.verifyPassword(player.getUsername(), password)) {
-            loginAttempts.remove(uuid);
-            loginCooldowns.remove(uuid);
-            plugin.logActivity(uuid, player.getUsername(), "LOGIN", player.getRemoteAddress().getAddress().getHostAddress(), "Login Command berhasil");
-            player.sendMessage(Component.text("§a§lNaturalAuth §r§aLogin berhasil!"));
-            handlePasswordVerified(player);
-        } else {
-            int attempts = loginAttempts.merge(uuid, 1, Integer::sum);
-            int remaining = MAX_LOGIN_ATTEMPTS - attempts;
-            if (remaining <= 0) {
-                loginAttempts.remove(uuid);
-                loginCooldowns.put(uuid, System.currentTimeMillis() + COOLDOWN_DURATION_MS);
-                plugin.logActivity(uuid, player.getUsername(), "BRUTE_FORCE", player.getRemoteAddress().getAddress().getHostAddress(), "Terlalu banyak percobaan gagal (Command)");
-                player.disconnect(Component.text(
-                    "§c§l\uD83D\uDEAB Terlalu Banyak Percobaan!\n" +
-                    "§r§7Anda gagal login sebanyak " + MAX_LOGIN_ATTEMPTS + " kali.\n" +
-                    "§aSilakan coba kembali dalam 60 detik."
-                ));
-            } else {
-                plugin.logActivity(uuid, player.getUsername(), "LOGIN_FAILED", player.getRemoteAddress().getAddress().getHostAddress(), "Password Command salah (" + attempts + "/" + MAX_LOGIN_ATTEMPTS + ")");
-                String warningColor = remaining == 1 ? "§c§l" : "§e";
-                player.sendMessage(Component.text(
-                    "§cPassword salah! §7(Percobaan §c" + attempts + "§7/§c" + MAX_LOGIN_ATTEMPTS + "§7) " +
-                    warningColor + (remaining == 1 ? "— Percobaan terakhir!" : "— " + remaining + " sisa")
-                ));
-            }
-        }
+        });
     }
 
     public void handlePasswordVerified(Player player) {

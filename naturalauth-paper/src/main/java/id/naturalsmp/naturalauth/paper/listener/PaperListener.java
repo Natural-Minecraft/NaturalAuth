@@ -32,6 +32,8 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.Material;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 import org.jetbrains.annotations.NotNull;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 import java.io.*;
 import java.time.Duration;
@@ -111,32 +113,42 @@ public class PaperListener implements Listener, PluginMessageListener {
                 String msg   = dis.readUTF();
                 Player target = Bukkit.getPlayer(uuid);
                 if (target != null && target.isOnline()) {
-                    if (success) {
-                        plugin.setAuthenticated(uuid, true);
-                        plugin.setPendingRules(uuid, false);
-                        activeGuiType.remove(uuid);
-                        activePrompt.remove(uuid);
-                        stopAuthUI(uuid);
-                        target.closeInventory();
-                        
-                        if ("Already Authenticated".equalsIgnoreCase(msg)) {
-                            target.sendMessage("§a§lNaturalAuth §r§aSesi aktif terdeteksi. Anda telah terautentikasi otomatis.");
-                        } else {
-                            target.sendMessage("§a§lNaturalAuth §r§aLogin berhasil!");
-                            // Success Title & Sound
-                            target.showTitle(Title.title(
-                                Component.text("§a✔ Login Berhasil!"),
-                                Component.text("§7Selamat datang kembali, §f" + target.getName() + "§7!"),
-                                Title.Times.times(Duration.ofMillis(200), Duration.ofMillis(2500), Duration.ofMillis(500))
-                            ));
-                            target.playSound(target.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.2f);
-                        }
-                        
-                        // Force SURVIVAL gamemode + give selector in lobby mode
-                        if (plugin.isLobbyMode()) {
-                            target.setGameMode(GameMode.SURVIVAL);
-                            giveServerSelector(target);
-                        }
+                        if (success) {
+                            plugin.setAuthenticated(uuid, true);
+                            plugin.setPendingRules(uuid, false);
+                            activeGuiType.remove(uuid);
+                            activePrompt.remove(uuid);
+                            stopAuthUI(uuid);
+                            target.closeInventory();
+                            
+                            // Virtual Void Lobby: Clear all applied potion effects on successful authentication
+                            target.removePotionEffect(PotionEffectType.INVISIBILITY);
+                            target.removePotionEffect(PotionEffectType.BLINDNESS);
+                            target.removePotionEffect(PotionEffectType.SLOWNESS);
+                            target.removePotionEffect(PotionEffectType.JUMP_BOOST);
+                            
+                            // Virtual Void Lobby: Reset client view distance to server default
+                            target.setViewDistance(-1);
+                            
+                            if ("Already Authenticated".equalsIgnoreCase(msg)) {
+                                target.sendMessage("§a§lNaturalAuth §r§aSesi aktif terdeteksi. Anda telah terautentikasi otomatis.");
+                            } else {
+                                target.sendMessage("§a§lNaturalAuth §r§aLogin berhasil!");
+                                // Success Title & Sound
+                                target.showTitle(Title.title(
+                                    Component.text("§a✔ Login Berhasil!"),
+                                    Component.text("§7Selamat datang kembali, §f" + target.getName() + "§7!"),
+                                    Title.Times.times(Duration.ofMillis(200), Duration.ofMillis(2500), Duration.ofMillis(500))
+                                ));
+                                target.playSound(target.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.2f);
+                            }
+                            
+                            // Force SURVIVAL gamemode + give selector + teleport to real spawn location
+                            if (plugin.isLobbyMode()) {
+                                target.setGameMode(GameMode.SURVIVAL);
+                                giveServerSelector(target);
+                                target.teleport(plugin.getSpawnLocation());
+                            }
                     } else {
                         target.sendMessage("§c§lNaturalAuth §r§c" + msg);
                         activePrompt.put(uuid, msg);
@@ -287,8 +299,31 @@ public class PaperListener implements Listener, PluginMessageListener {
         // Force SURVIVAL gamemode in lobby
         player.setGameMode(GameMode.SURVIVAL);
 
-        // Teleport to lobby spawn location
-        player.teleport(plugin.getSpawnLocation());
+        // Virtual Void Lobby: Place 1 BARRIER block precisely under player's feet
+        Location spawnLoc = plugin.getSpawnLocation();
+        Location barrierLoc = spawnLoc.clone().subtract(0, 1, 0);
+        
+        // Ensure void around player's body and place barrier block
+        spawnLoc.getBlock().setType(Material.AIR);
+        spawnLoc.clone().add(0, 1, 0).getBlock().setType(Material.AIR);
+        barrierLoc.getBlock().setType(Material.BARRIER);
+
+        // Teleport to lobby spawn location (directly on top of the barrier block)
+        player.teleport(spawnLoc);
+
+        // Limit render distance to minimum (2 chunks) to prevent client chunk loading lag
+        player.setViewDistance(2);
+
+        // Apply invisible, blindness, slowness 255, jump boost 250 to lock player completely
+        player.removePotionEffect(PotionEffectType.INVISIBILITY);
+        player.removePotionEffect(PotionEffectType.BLINDNESS);
+        player.removePotionEffect(PotionEffectType.SLOWNESS);
+        player.removePotionEffect(PotionEffectType.JUMP_BOOST);
+
+        player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, Integer.MAX_VALUE, 1, false, false));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, Integer.MAX_VALUE, 1, false, false));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, Integer.MAX_VALUE, 255, false, false));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, Integer.MAX_VALUE, 250, false, false));
 
         // Notify Velocity that the player is ready to receive GUI
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
@@ -464,9 +499,14 @@ public class PaperListener implements Listener, PluginMessageListener {
         if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
             Location from = event.getFrom();
             Location to   = event.getTo();
-            if (from.getX() != to.getX() || from.getY() != to.getY() || from.getZ() != to.getZ()) {
-                event.setTo(from);
+            
+            // CPU Optimization: early return if player only looks around (Yaw/Pitch changes, no block movement)
+            if (from.getX() == to.getX() && from.getY() == to.getY() && from.getZ() == to.getZ()) {
+                return;
             }
+            
+            // Cancel movement if X, Y, or Z coordinate actually changed
+            event.setTo(from);
         }
     }
 

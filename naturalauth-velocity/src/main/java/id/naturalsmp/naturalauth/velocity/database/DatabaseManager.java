@@ -21,10 +21,22 @@ public class DatabaseManager {
     }
 
     public void init(String host, int port, String dbName, String username, String password, String prefix) {
+        // Anti-SQL Injection validation using Regex
+        // Table names and prefixes cannot be parameterized, so they must be strictly alphanumeric/underscore
+        if (prefix == null || !prefix.matches("^[a-zA-Z0-9_]*$")) {
+            throw new IllegalArgumentException("Database prefix contains invalid characters! Only alphanumeric and underscores are allowed.");
+        }
         usersTable = prefix + "users";
         sessionsTable = prefix + "sessions";
         otpsTable = prefix + "otps";
         logsTable = prefix + "logs";
+
+        if (!usersTable.matches("^[a-zA-Z0-9_]+$") ||
+            !sessionsTable.matches("^[a-zA-Z0-9_]+$") ||
+            !otpsTable.matches("^[a-zA-Z0-9_]+$") ||
+            !logsTable.matches("^[a-zA-Z0-9_]+$")) {
+            throw new IllegalArgumentException("Database table names contain invalid characters! Only alphanumeric and underscores are allowed.");
+        }
 
         HikariConfig config = new HikariConfig();
         config.setDriverClassName("com.mysql.cj.jdbc.Driver");

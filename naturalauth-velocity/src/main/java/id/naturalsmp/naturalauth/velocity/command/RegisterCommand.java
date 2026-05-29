@@ -9,6 +9,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import java.util.concurrent.CompletableFuture;
+
 public class RegisterCommand implements SimpleCommand {
 
     private final NaturalAuthVelocity plugin;
@@ -35,12 +37,6 @@ public class RegisterCommand implements SimpleCommand {
             if (plugin.getVelocityListener() != null) {
                 plugin.getVelocityListener().finalizeAuth(player);
             }
-            return;
-        }
-
-        boolean registered = plugin.getDatabaseManager().isRegistered(player.getUsername());
-        if (registered) {
-            player.sendMessage(Component.text("§cAkun Anda sudah terdaftar! Gunakan §e/login <password>§c untuk masuk."));
             return;
         }
 
@@ -71,22 +67,34 @@ public class RegisterCommand implements SimpleCommand {
             return;
         }
 
-        boolean success = plugin.register(player.getUniqueId(), player.getUsername(), password);
-        if (success) {
-            player.sendMessage(Component.text("§a§l✔ REGISTRASI BERHASIL!"));
-            player.sendMessage(Component.text("§7Username: §f" + player.getUsername()));
-            player.sendMessage(Component.text("§7Akun Anda telah dibuat dan siap digunakan."));
-
-            // Trigger email linkage prompt after registration
-            plugin.getServer().getScheduler().buildTask(plugin, () -> {
-                if (player.isActive()) {
-                    player.sendMessage(Component.text("§e§l➤ §r§eLangkah berikutnya: Kaitkan email untuk keamanan akun"));
-                    player.sendMessage(Component.text("§b/email <alamatEmail> §7— menerima OTP & reset password via email."));
+        // Asynchronously check registration status and generate BCrypt hash on background thread
+        CompletableFuture.supplyAsync(() -> plugin.getDatabaseManager().isRegistered(player.getUsername()))
+            .thenAcceptAsync(registered -> {
+                if (registered) {
+                    player.sendMessage(Component.text("§cAkun Anda sudah terdaftar! Gunakan §e/login <password>§c untuk masuk."));
+                    return;
                 }
-            }).delay(500, TimeUnit.MILLISECONDS).schedule();
-        } else {
-            player.sendMessage(Component.text("§cRegistrasi gagal. Silakan coba kembali atau hubungi admin!"));
-        }
+
+                // Heavy BCrypt hashing and registration
+                CompletableFuture.supplyAsync(() -> plugin.register(player.getUniqueId(), player.getUsername(), password))
+                    .thenAcceptAsync(success -> {
+                        if (success) {
+                            player.sendMessage(Component.text("§a§l✔ REGISTRASI BERHASIL!"));
+                            player.sendMessage(Component.text("§7Username: §f" + player.getUsername()));
+                            player.sendMessage(Component.text("§7Akun Anda telah dibuat dan siap digunakan."));
+
+                            // Trigger email linkage prompt after registration
+                            plugin.getServer().getScheduler().buildTask(plugin, () -> {
+                                if (player.isActive()) {
+                                    player.sendMessage(Component.text("§e§l➤ §r§eLangkah berikutnya: Kaitkan email untuk keamanan akun"));
+                                    player.sendMessage(Component.text("§b/email <alamatEmail> §7— menerima OTP & reset password via email."));
+                                }
+                            }).delay(500, TimeUnit.MILLISECONDS).schedule();
+                        } else {
+                            player.sendMessage(Component.text("§cRegistrasi gagal. Silakan coba kembali atau hubungi admin!"));
+                        }
+                    });
+            });
     }
 
     @Override

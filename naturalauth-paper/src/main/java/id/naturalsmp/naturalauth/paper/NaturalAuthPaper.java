@@ -84,14 +84,9 @@ public class NaturalAuthPaper extends JavaPlugin {
             });
         }
 
-        // Load schematic
-        if (enableSchematicLoading) {
-            File structureFile = new File(getDataFolder(), "lobby.nbt");
-            if (!getDataFolder().exists()) {
-                getDataFolder().mkdirs();
-            }
-            SchematicLoader.loadLobbyStructure(getLogger(), structureFile, schematicPasteLocation);
-        }
+        // Schematic loading is completely disabled to support the Virtual Void Lobby feature.
+        // The lobby will remain purely empty (void) with only a single barrier block for player spawning.
+        getLogger().info("Virtual Void Lobby mode active: physical platform loading has been disabled.");
 
         getLogger().info("NaturalAuth Paper companion has been enabled.");
     }
