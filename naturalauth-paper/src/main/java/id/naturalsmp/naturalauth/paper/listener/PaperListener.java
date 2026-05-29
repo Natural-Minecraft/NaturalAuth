@@ -750,6 +750,15 @@ public class PaperListener implements Listener, PluginMessageListener {
             }
 
             int remaining = (int) Math.max(0, LOGIN_TIMEOUT_SECONDS - elapsedSeconds);
+            if (remaining <= 0) {
+                player.kick(Component.text(
+                    "§c§l⏱ Waktu Habis!\n" +
+                    "§r§7Anda tidak menyelesaikan login dalam 60 detik.\n" +
+                    "§aGabung kembali untuk mencoba lagi."
+                ));
+                stopAuthUI(uuid);
+                return;
+            }
             double progress = remaining / (double) LOGIN_TIMEOUT_SECONDS;
 
             BossBar bar = bossBars.get(uuid);
