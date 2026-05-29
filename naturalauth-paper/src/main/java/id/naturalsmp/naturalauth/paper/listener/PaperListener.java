@@ -743,6 +743,12 @@ public class PaperListener implements Listener, PluginMessageListener {
             }
             long elapsedSeconds = (System.currentTimeMillis()
                     - loginStartTimes.getOrDefault(uuid, System.currentTimeMillis())) / 1000;
+
+            // Periodically request Velocity to verify auth status every 5 seconds (self-healing / state-sync)
+            if (elapsedSeconds % 5 == 0) {
+                sendPacketStatusCheck(player);
+            }
+
             int remaining = (int) Math.max(0, LOGIN_TIMEOUT_SECONDS - elapsedSeconds);
             double progress = remaining / (double) LOGIN_TIMEOUT_SECONDS;
 
@@ -801,6 +807,19 @@ public class PaperListener implements Listener, PluginMessageListener {
             player.sendPluginMessage(plugin, AuthBridgeProtocol.FULL_CHANNEL, baos.toByteArray());
         } catch (IOException e) {
             plugin.getLogger().severe("Failed to send PACKET_PLAYER_READY to Velocity!");
+            e.printStackTrace();
+        }
+    }
+
+    public void sendPacketStatusCheck(Player player) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             DataOutputStream dos = new DataOutputStream(baos)) {
+
+            dos.writeByte(AuthBridgeProtocol.PACKET_STATUS_CHECK);
+            dos.writeUTF(player.getUniqueId().toString());
+            player.sendPluginMessage(plugin, AuthBridgeProtocol.FULL_CHANNEL, baos.toByteArray());
+        } catch (IOException e) {
+            plugin.getLogger().severe("Failed to send PACKET_STATUS_CHECK to Velocity!");
             e.printStackTrace();
         }
     }

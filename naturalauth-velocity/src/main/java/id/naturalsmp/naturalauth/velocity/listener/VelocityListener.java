@@ -388,6 +388,17 @@ public class VelocityListener {
                 plugin.getServer().getPlayer(uuid).ifPresent(player -> {
                     handleOtpSubmission(player, otpCode);
                 });
+            } else if (packetId == AuthBridgeProtocol.PACKET_STATUS_CHECK) {
+                UUID uuid = UUID.fromString(dis.readUTF());
+                plugin.getServer().getPlayer(uuid).ifPresent(player -> {
+                    if (plugin.isAuthenticated(uuid)) {
+                        if (plugin.getLimboPlayers().contains(uuid)) {
+                            sendLimboStatusToPaper(player, true);
+                        } else {
+                            sendAuthStatusToPaper(player, true, "Already Authenticated");
+                        }
+                    }
+                });
             }
 
         } catch (IOException e) {

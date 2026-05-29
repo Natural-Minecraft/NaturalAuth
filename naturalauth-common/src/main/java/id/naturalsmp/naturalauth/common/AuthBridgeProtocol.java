@@ -22,4 +22,6 @@ public class AuthBridgeProtocol {
     public static final byte PACKET_RULES_DECLINED   = 7; // Paper → Velocity: player declined the server rules (UUID)
     public static final byte PACKET_SUBMIT_EMAIL     = 8; // Paper → Velocity: player submitted email (UUID, email)
     public static final byte PACKET_SUBMIT_OTP       = 11; // Paper → Velocity: player submitted OTP (UUID, otpCode)
+    public static final byte PACKET_STATUS_CHECK     = 15; // Paper → Velocity: query current auth status (UUID)
 }
+

@@ -21,7 +21,10 @@ public class LoginCommand implements SimpleCommand {
         }
 
         if (plugin.isAuthenticated(player.getUniqueId())) {
-            player.sendMessage(Component.text("§cAnda sudah login!"));
+            player.sendMessage(Component.text("§a§lNaturalAuth §r§eAnda sudah login! Menyinkronkan status login ke server..."));
+            if (plugin.getVelocityListener() != null) {
+                plugin.getVelocityListener().finalizeAuth(player);
+            }
             return;
         }
 
