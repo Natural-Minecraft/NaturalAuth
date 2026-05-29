@@ -322,15 +322,6 @@ public class PaperListener implements Listener, PluginMessageListener {
             }
         }, 10L);
 
-        // After 3 seconds (60 ticks), remove all lock effects so the player can
-        // freely roam the lobby while the login/register dialog is still open.
-        // If auto-login completes before 3s, effects are cleared by finalizeAuthOnPaper() instead.
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            if (player.isOnline() && !plugin.isAuthenticated(uuid)) {
-                removeAllLockEffects(player);
-            }
-        }, 60L); // 3 seconds
-
         // Start BossBar + ActionBar auth UI after 2 seconds (allows auto-login to complete first)
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (player.isOnline() && !plugin.isAuthenticated(uuid) && !plugin.isPendingRules(uuid)) {
