@@ -92,6 +92,7 @@ sequenceDiagram
 ### 🎨 Visual & UX (Paper Lobby)
 | Fitur | Detail |
 |:------|:-------|
+| **Logo Resource Pack Unicode** | Karakter unicode dari font kustom ItemsAdder (mis. logo NaturalSMP) ditampilkan di atas form Login & Register melalui `LogoRPUnicode` di config. Mendukung PlaceholderAPI untuk placeholder dinamis. |
 | **BossBar Countdown** | Bar real-time berwarna gradasi (Hijau → Kuning saat ≤20s → Merah saat ≤10s) menunjukkan waktu login tersisa. |
 | **ActionBar Hints** | Petunjuk bergantian periodik: cara membuka GUI, cara daftar via `/register`. |
 | **Title + Sound Success** | `✔ Login Berhasil!` dengan suara `ENTITY_PLAYER_LEVELUP` saat berhasil login. |
@@ -265,6 +266,13 @@ enabled = false
 lobby-mode: true
 enable-schematic-loading: true
 
+# Logo Resource Pack Unicode (opsional)
+# Isi dengan karakter unicode dari font ItemsAdder kamu (mis. logo NaturalSMP).
+# Karakter ini akan ditampilkan di atas form Login & Register.
+# Mendukung PlaceholderAPI placeholder dan kode warna &.
+# Kosongkan ("") untuk menonaktifkan fitur logo.
+LogoRPUnicode: ""
+
 spawn-location:
   world: world
   x: 0.5
@@ -281,6 +289,8 @@ lobby-mode: false
 enable-schematic-loading: false
 ```
 > **Catatan:** Dengan `lobby-mode: false`, plugin Paper akan langsung menganggap semua pemain terautentikasi. Ini memungkinkan server sekolah/survival berjalan normal tanpa proses login ulang, namun event listener GUI dan admin tetap aktif.
+
+> **Catatan ItemsAdder & PlaceholderAPI:** `LogoRPUnicode` hanya tampil jika resource pack server sudah aktif di client. Pastikan `PlaceholderAPI` terinstall di server Lobby jika menggunakan placeholder di dalam nilai `LogoRPUnicode`. PlaceholderAPI adalah **soft-dependency** — plugin tetap berjalan normal tanpa PAPI.
 
 ---
 

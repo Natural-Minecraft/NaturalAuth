@@ -26,7 +26,11 @@
             <id>mvn-wesjd-net</id>
             <url>https://mvn.wesjd.net/</url>
         </repository>
-        <!-- WorldEdit/FAWE repo if needed, but we'll use Bukkit's StructureManager to avoid external dependency -->
+        <!-- PlaceholderAPI -->
+        <repository>
+            <id>placeholderapi</id>
+            <url>https://repo.extendedclip.com/content/repositories/placeholderapi/</url>
+        </repository>
     </repositories>
 
     <dependencies>
@@ -49,6 +53,14 @@
             <groupId>net.wesjd</groupId>
             <artifactId>anvilgui</artifactId>
             <version>1.10.13-SNAPSHOT</version>
+        </dependency>
+
+        <!-- PlaceholderAPI (soft depend, provided at runtime) -->
+        <dependency>
+            <groupId>me.clip</groupId>
+            <artifactId>placeholderapi</artifactId>
+            <version>2.12.2</version>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 
