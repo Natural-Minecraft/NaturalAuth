@@ -66,6 +66,9 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
             case "setcracked":
                 handleSetCracked(invocation, args);
                 break;
+            case "reload":
+                handleReload(invocation);
+                break;
             default:
                 sendHelp(invocation);
                 break;
@@ -85,6 +88,23 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
         invocation.source().sendMessage(Component.text("§e/na admin whois <player> §7- Lihat profil detil (Chest GUI)"));
         invocation.source().sendMessage(Component.text("§e/na admin setpremium <player> §7- Set status premium"));
         invocation.source().sendMessage(Component.text("§e/na admin setcracked <player> §7- Set status cracked"));
+        invocation.source().sendMessage(Component.text("§e/na admin reload §7- Reload config.toml tanpa restart server"));
+    }
+
+    private void handleReload(Invocation invocation) {
+        if (!invocation.source().hasPermission("naturalauth.admin")) {
+            invocation.source().sendMessage(Component.text("§cKamu tidak punya izin untuk melakukan ini!"));
+            return;
+        }
+        invocation.source().sendMessage(Component.text("§e[NaturalAuth] §7Sedang mereload konfigurasi..."));
+        try {
+            plugin.reloadPlugin();
+            invocation.source().sendMessage(Component.text("§a[NaturalAuth] ✔ Config berhasil di-reload!"));
+            invocation.source().sendMessage(Component.text("§7Settings aktif: session-expiry, auto-login, bcrypt-rounds, website-url, server names."));
+        } catch (Exception e) {
+            invocation.source().sendMessage(Component.text("§c[NaturalAuth] ✖ Reload gagal: §f" + e.getMessage()));
+            plugin.getLogger().error("Reload config failed!", e);
+        }
     }
 
     private void handleForceLogin(Invocation invocation, String[] args) {

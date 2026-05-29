@@ -162,6 +162,7 @@ Item premium yang diberikan ke semua pemain terautentikasi di Lobby:
 | `/na admin whois <player>` | **In-game:** Chest GUI profil lengkap. **Console:** Output log terminal berformat rapi (Status, Server, IP, UUID, Ping, Premium, Email, Tanggal Daftar). | ✅ |
 | `/na admin setpremium <player>` | Mengubah status akun menjadi Premium. | ✅ |
 | `/na admin setcracked <player>` | Mengubah status akun menjadi Cracked (hapus registrasi). | ✅ |
+| `/na admin reload` | **Deep reload** `config.toml` dari disk — menerapkan ulang semua settings (session-expiry, auto-login, bcrypt-rounds, website-url, server names) **tanpa restart server** dan tanpa memutus koneksi database atau mengeluarkan pemain yang sedang online. | ✅ |
 
 **Contoh output `/na admin whois` di Console:**
 ```

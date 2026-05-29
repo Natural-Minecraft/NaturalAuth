@@ -202,6 +202,30 @@ public class NaturalAuthVelocity {
         config = new Toml().read(configFile);
     }
 
+    /**
+     * Deep-reloads config.toml from disk and re-applies all runtime settings.
+     * Database connection is preserved. Authenticated players are NOT cleared.
+     */
+    public void reloadPlugin() {
+        // 1. Re-read config.toml from disk
+        loadConfig();
+
+        // 2. Re-apply session settings
+        Toml settingsSection = config.getTable("settings");
+        int sessionExpiryHours = 24;
+        boolean autoLogin = true;
+        if (settingsSection != null) {
+            Long exp = settingsSection.getLong("session-expiry-hours");
+            if (exp != null) sessionExpiryHours = exp.intValue();
+            Boolean al = settingsSection.getBoolean("auto-login");
+            if (al != null) autoLogin = al;
+        }
+        // Recreate SessionManager with updated settings (DB connection is reused)
+        sessionManager = new SessionManager(databaseManager, sessionExpiryHours, autoLogin);
+
+        logger.info("NaturalAuth config reloaded successfully.");
+    }
+
     // ───── Auth State ────────────────────────────────────────────────────────
 
     public boolean isAuthenticated(UUID uuid) {
