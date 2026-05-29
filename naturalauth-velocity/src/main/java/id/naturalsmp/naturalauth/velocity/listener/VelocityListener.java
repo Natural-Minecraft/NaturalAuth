@@ -214,6 +214,11 @@ public class VelocityListener {
         UUID uuid = player.getUniqueId();
         if (plugin.isAuthenticated(uuid)) {
             String lobbyName = plugin.getConfig().getTable("servers").getString("lobby", "lobby");
+            if (event.getServer().getServerInfo().getName().equalsIgnoreCase(lobbyName)) {
+                // Lobby/Limbo is dead/offline! Disconnect the player to prevent infinite redirect loop
+                player.disconnect(Component.text("§cServer Lobby/Limbo tidak tersedia atau koneksi terputus. Silakan hubungi admin."));
+                return;
+            }
             RegisteredServer lobby = plugin.getServer().getServer(lobbyName).orElse(null);
             if (lobby != null) {
                 // Prevent disconnect by redirecting silently to Lobby (Limbo Waiting Room)
@@ -305,16 +310,16 @@ public class VelocityListener {
              DataInputStream dis = new DataInputStream(bais)) {
 
             byte packetId = dis.readByte();
-            plugin.getLogger().info("[NaturalAuth-Debug] Received PluginMessage on Velocity proxy, Packet ID: " + packetId);
+            // plugin.getLogger().info("[NaturalAuth-Debug] Received PluginMessage on Velocity proxy, Packet ID: " + packetId);
             
             if (packetId == AuthBridgeProtocol.PACKET_PLAYER_READY) {
                 UUID uuid = UUID.fromString(dis.readUTF());
-                plugin.getLogger().info("[NaturalAuth-Debug] PACKET_PLAYER_READY uuid: " + uuid);
+                // plugin.getLogger().info("[NaturalAuth-Debug] PACKET_PLAYER_READY uuid: " + uuid);
                 plugin.getServer().getPlayer(uuid).ifPresent(player -> {
-                    plugin.getLogger().info("[NaturalAuth-Debug] PACKET_PLAYER_READY player: " + player.getUsername()
-                            + " | autoLogin=" + pendingAutoLoginPlayers.contains(uuid)
-                            + " | autoRules=" + pendingAutoRulesPlayers.contains(uuid)
-                            + " | auth=" + plugin.isAuthenticated(uuid));
+                    // plugin.getLogger().info("[NaturalAuth-Debug] PACKET_PLAYER_READY player: " + player.getUsername()
+                    //         + " | autoLogin=" + pendingAutoLoginPlayers.contains(uuid)
+                    //         + " | autoRules=" + pendingAutoRulesPlayers.contains(uuid)
+                    //         + " | auth=" + plugin.isAuthenticated(uuid));
 
                     if (pendingAutoLoginPlayers.remove(uuid)) {
                         // Player had a valid session — skip GUI, finalize auth directly

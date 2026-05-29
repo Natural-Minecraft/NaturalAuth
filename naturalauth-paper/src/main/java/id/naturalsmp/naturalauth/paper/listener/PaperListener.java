@@ -83,8 +83,8 @@ public class PaperListener implements Listener, PluginMessageListener {
              DataInputStream dis = new DataInputStream(bais)) {
 
             byte packetId = dis.readByte();
-            plugin.getLogger().info("[NaturalAuth-Debug] Received PluginMessage on Paper from player "
-                    + player.getName() + ", Packet ID: " + packetId);
+            // plugin.getLogger().info("[NaturalAuth-Debug] Received PluginMessage on Paper from player "
+            //         + player.getName() + ", Packet ID: " + packetId);
 
             if (packetId == AuthBridgeProtocol.PACKET_OPEN_GUI) {
                 UUID uuid   = UUID.fromString(dis.readUTF());
