@@ -226,6 +226,9 @@ public class PaperListener implements Listener, PluginMessageListener {
                             if (target.isOnline()) {
                                 target.closeInventory();
                                 giveServerSelector(target);
+                                // Player is authenticated & in limbo — remove all lock effects
+                                // immediately so they can freely roam the lobby
+                                removeAllLockEffects(target);
                             }
                         });
                         startLimboUI(target);
@@ -299,7 +302,7 @@ public class PaperListener implements Listener, PluginMessageListener {
         // Limit render distance to minimum (2 chunks) to prevent client chunk loading lag
         player.setViewDistance(2);
 
-        // Apply invisible, blindness, slowness 255, jump boost 250 to lock player completely
+        // Apply invisible, blindness, slowness 255, jump boost 250 to lock player during initial join
         player.removePotionEffect(PotionEffectType.INVISIBILITY);
         player.removePotionEffect(PotionEffectType.BLINDNESS);
         player.removePotionEffect(PotionEffectType.SLOWNESS);
@@ -318,6 +321,15 @@ public class PaperListener implements Listener, PluginMessageListener {
                 sendPlayerReady(player);
             }
         }, 10L);
+
+        // After 3 seconds (60 ticks), remove all lock effects so the player can
+        // freely roam the lobby while the login/register dialog is still open.
+        // If auto-login completes before 3s, effects are cleared by finalizeAuthOnPaper() instead.
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (player.isOnline() && !plugin.isAuthenticated(uuid)) {
+                removeAllLockEffects(player);
+            }
+        }, 60L); // 3 seconds
 
         // Start BossBar + ActionBar auth UI after 2 seconds (allows auto-login to complete first)
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
@@ -825,6 +837,17 @@ public class PaperListener implements Listener, PluginMessageListener {
             Bukkit.getScheduler().cancelTask(taskId);
         }
         loginStartTimes.remove(uuid);
+    }
+
+    /**
+     * Removes all login lock effects (INVISIBILITY, BLINDNESS, SLOWNESS, JUMP_BOOST)
+     * from a player. Must be called from the main thread.
+     */
+    private void removeAllLockEffects(Player player) {
+        player.removePotionEffect(PotionEffectType.INVISIBILITY);
+        player.removePotionEffect(PotionEffectType.BLINDNESS);
+        player.removePotionEffect(PotionEffectType.SLOWNESS);
+        player.removePotionEffect(PotionEffectType.JUMP_BOOST);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
