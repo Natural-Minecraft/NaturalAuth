@@ -121,14 +121,8 @@ public class PaperListener implements Listener, PluginMessageListener {
                             stopAuthUI(uuid);
                             target.closeInventory();
                             
-                            // Virtual Void Lobby: Clear all applied potion effects on successful authentication
-                            target.removePotionEffect(PotionEffectType.INVISIBILITY);
-                            target.removePotionEffect(PotionEffectType.BLINDNESS);
-                            target.removePotionEffect(PotionEffectType.SLOWNESS);
-                            target.removePotionEffect(PotionEffectType.JUMP_BOOST);
-                            
-                            // Virtual Void Lobby: Reset client view distance to server default
-                            target.setViewDistance(-1);
+                            // Both auth yes and no will keep the Virtual Void Lobby state (effects, view distance 2, barrier spawn)
+                            // until they are successfully redirected/connected to the survival server.
                             
                             if ("Already Authenticated".equalsIgnoreCase(msg)) {
                                 target.sendMessage("§a§lNaturalAuth §r§aSesi aktif terdeteksi. Anda telah terautentikasi otomatis.");
@@ -141,13 +135,6 @@ public class PaperListener implements Listener, PluginMessageListener {
                                     Title.Times.times(Duration.ofMillis(200), Duration.ofMillis(2500), Duration.ofMillis(500))
                                 ));
                                 target.playSound(target.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.2f);
-                            }
-                            
-                            // Force SURVIVAL gamemode + give selector + teleport to real spawn location
-                            if (plugin.isLobbyMode()) {
-                                target.setGameMode(GameMode.SURVIVAL);
-                                giveServerSelector(target);
-                                target.teleport(plugin.getSpawnLocation());
                             }
                     } else {
                         target.sendMessage("§c§lNaturalAuth §r§c" + msg);
@@ -237,9 +224,7 @@ public class PaperListener implements Listener, PluginMessageListener {
                         // Must run on main thread
                         Bukkit.getScheduler().runTask(plugin, () -> {
                             if (target.isOnline()) {
-                                target.setGameMode(GameMode.SURVIVAL);
                                 target.closeInventory();
-                                target.teleport(plugin.getSpawnLocation());
                                 giveServerSelector(target);
                             }
                         });
@@ -476,7 +461,7 @@ public class PaperListener implements Listener, PluginMessageListener {
     public void onPlayerDropItem(PlayerDropItemEvent event) {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
-        if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
+        if (plugin.isLobbyMode() || !plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
             event.setCancelled(true);
             return;
         }
@@ -489,7 +474,7 @@ public class PaperListener implements Listener, PluginMessageListener {
     @EventHandler
     public void onPlayerPickupItem(PlayerPickupItemEvent event) {
         UUID uuid = event.getPlayer().getUniqueId();
-        if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
+        if (plugin.isLobbyMode() || !plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
             event.setCancelled(true);
         }
     }
@@ -498,7 +483,7 @@ public class PaperListener implements Listener, PluginMessageListener {
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
-        if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
+        if (plugin.isLobbyMode() || !plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
             Location from = event.getFrom();
             Location to   = event.getTo();
             
@@ -516,11 +501,11 @@ public class PaperListener implements Listener, PluginMessageListener {
     public void onPlayerChat(AsyncPlayerChatEvent event) {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
-        if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
+        if (plugin.isLobbyMode() || !plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
             event.setCancelled(true);
             if (plugin.isPendingRules(uuid)) {
                 player.sendMessage("§cAnda harus menyetujui peraturan server terlebih dahulu!");
-            } else {
+            } else if (!plugin.isAuthenticated(uuid)) {
                 player.sendMessage("§cAnda harus login terlebih dahulu!");
             }
         }
@@ -530,7 +515,7 @@ public class PaperListener implements Listener, PluginMessageListener {
     public void onPlayerCommand(PlayerCommandPreprocessEvent event) {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
-        if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
+        if (plugin.isLobbyMode() || !plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
             String message = event.getMessage().toLowerCase().trim();
             if (message.startsWith("/naturalauth ") || message.startsWith("naturalauth ") ||
                 message.startsWith("/na ")          || message.startsWith("na ") ||
@@ -541,7 +526,7 @@ public class PaperListener implements Listener, PluginMessageListener {
             event.setCancelled(true);
             if (plugin.isPendingRules(uuid)) {
                 player.sendMessage("§cAnda harus menyetujui peraturan server terlebih dahulu!");
-            } else {
+            } else if (!plugin.isAuthenticated(uuid)) {
                 player.sendMessage("§cAnda harus login terlebih dahulu!");
             }
         }
@@ -550,7 +535,7 @@ public class PaperListener implements Listener, PluginMessageListener {
     @EventHandler
     public void onBlockBreak(BlockBreakEvent event) {
         UUID uuid = event.getPlayer().getUniqueId();
-        if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
+        if (plugin.isLobbyMode() || !plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
             event.setCancelled(true);
         }
     }
@@ -558,7 +543,7 @@ public class PaperListener implements Listener, PluginMessageListener {
     @EventHandler
     public void onBlockPlace(BlockPlaceEvent event) {
         UUID uuid = event.getPlayer().getUniqueId();
-        if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
+        if (plugin.isLobbyMode() || !plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
             event.setCancelled(true);
         }
     }
@@ -567,7 +552,7 @@ public class PaperListener implements Listener, PluginMessageListener {
     public void onEntityDamage(EntityDamageEvent event) {
         if (event.getEntity() instanceof Player player) {
             UUID uuid = player.getUniqueId();
-            if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
+            if (plugin.isLobbyMode() || !plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
                 event.setCancelled(true);
             }
         }
