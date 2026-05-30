@@ -120,6 +120,15 @@ public class PaperListener implements Listener, PluginMessageListener {
                             activePrompt.remove(uuid);
                             stopAuthUI(uuid);
                             target.closeInventory();
+
+                            // Schedule lock effects removal and view distance restore after 3 seconds (60 ticks)
+                            // if they are authenticated and still online in the lobby.
+                            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                                if (target.isOnline() && plugin.isAuthenticated(uuid)) {
+                                    removeAllLockEffects(target);
+                                    target.setViewDistance(target.getWorld().getViewDistance());
+                                }
+                            }, 60L);
                             
                             // Both auth yes and no will keep the Virtual Void Lobby state (effects, view distance 2, barrier spawn)
                             // until they are successfully redirected/connected to the survival server.

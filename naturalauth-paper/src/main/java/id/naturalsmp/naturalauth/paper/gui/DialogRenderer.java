@@ -40,9 +40,10 @@ public class DialogRenderer {
      * Returns a DialogBody containing the LogoRPUnicode from config,
      * or null if the config value is empty/not set.
      */
-    private static DialogBody getLogoBody(NaturalAuthPaper plugin) {
+    private static DialogBody getLogoBody(NaturalAuthPaper plugin, Player player) {
         String logo = plugin.getConfig().getString("LogoRPUnicode", "");
         if (logo == null || logo.isEmpty()) return null;
+        logo = PlaceholderParser.parse(player, logo);
         return DialogBody.plainMessage(Component.text(logo));
     }
 
@@ -108,9 +109,9 @@ public class DialogRenderer {
                 .build();
 
         List<DialogBody> loginBody = new ArrayList<>();
-        DialogBody logoBody = getLogoBody(plugin);
+        DialogBody logoBody = getLogoBody(plugin, player);
         if (logoBody != null) loginBody.add(logoBody);
-        loginBody.add(DialogBody.plainMessage(Component.text("§e" + prompt)));
+        loginBody.add(DialogBody.plainMessage(Component.text("§e" + PlaceholderParser.parse(player, prompt))));
 
         Dialog dialog = Dialog.create(builder -> builder.empty()
                 .base(DialogBase.builder(Component.text("Login"))
@@ -179,9 +180,9 @@ public class DialogRenderer {
                 .build();
 
         List<DialogBody> registerBody = new ArrayList<>();
-        DialogBody logoBodyReg = getLogoBody(plugin);
+        DialogBody logoBodyReg = getLogoBody(plugin, player);
         if (logoBodyReg != null) registerBody.add(logoBodyReg);
-        registerBody.add(DialogBody.plainMessage(Component.text("§e" + prompt)));
+        registerBody.add(DialogBody.plainMessage(Component.text("§e" + PlaceholderParser.parse(player, prompt))));
 
         Dialog dialog = Dialog.create(builder -> builder.empty()
                 .base(DialogBase.builder(Component.text("Register"))

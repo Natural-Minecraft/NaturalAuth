@@ -35,17 +35,18 @@ public class AnvilGuiRenderer {
     }
 
     private static void openLoginGUI(NaturalAuthPaper plugin, Player player, String prompt) {
+        String parsedPrompt = PlaceholderParser.parse(player, prompt);
         ItemStack itemLeft = new ItemStack(Material.PAPER);
         ItemMeta meta = itemLeft.getItemMeta();
         if (meta != null) {
-            meta.setDisplayName(prompt);
+            meta.setDisplayName(parsedPrompt);
             itemLeft.setItemMeta(meta);
         }
 
         new AnvilGUI.Builder()
                 .plugin(plugin)
                 .title(getFormattedTitle(plugin, player, "Login - Tulis Password"))
-                .text(prompt)
+                .text(parsedPrompt)
                 .itemLeft(itemLeft)
                 .onClick((slot, stateSnapshot) -> {
                     if (slot != AnvilGUI.Slot.OUTPUT) {
@@ -53,9 +54,9 @@ public class AnvilGuiRenderer {
                     }
 
                     String password = stateSnapshot.getText();
-                    if (password == null || password.trim().isEmpty() || password.equalsIgnoreCase(prompt)) {
+                    if (password == null || password.trim().isEmpty() || password.equalsIgnoreCase(parsedPrompt)) {
                         player.sendMessage("§cPassword tidak boleh kosong!");
-                        return Collections.singletonList(AnvilGUI.ResponseAction.replaceInputText(prompt));
+                        return Collections.singletonList(AnvilGUI.ResponseAction.replaceInputText(parsedPrompt));
                     }
 
                     submitPasswordToVelocity(plugin, player, password);
@@ -73,17 +74,18 @@ public class AnvilGuiRenderer {
     }
 
     private static void openRegisterStep1(NaturalAuthPaper plugin, Player player, String prompt) {
+        String parsedPrompt = PlaceholderParser.parse(player, prompt);
         ItemStack itemLeft = new ItemStack(Material.PAPER);
         ItemMeta meta = itemLeft.getItemMeta();
         if (meta != null) {
-            meta.setDisplayName(prompt);
+            meta.setDisplayName(parsedPrompt);
             itemLeft.setItemMeta(meta);
         }
 
         new AnvilGUI.Builder()
                 .plugin(plugin)
                 .title(getFormattedTitle(plugin, player, "Daftar - Tulis Password"))
-                .text(prompt)
+                .text(parsedPrompt)
                 .itemLeft(itemLeft)
                 .onClick((slot, stateSnapshot) -> {
                     if (slot != AnvilGUI.Slot.OUTPUT) {
@@ -91,9 +93,9 @@ public class AnvilGuiRenderer {
                     }
 
                     String password = stateSnapshot.getText();
-                    if (password == null || password.trim().isEmpty() || password.equalsIgnoreCase(prompt) || password.length() < 4) {
+                    if (password == null || password.trim().isEmpty() || password.equalsIgnoreCase(parsedPrompt) || password.length() < 4) {
                         player.sendMessage("§cPassword minimal 4 karakter!");
-                        return Collections.singletonList(AnvilGUI.ResponseAction.replaceInputText(prompt));
+                        return Collections.singletonList(AnvilGUI.ResponseAction.replaceInputText(parsedPrompt));
                     }
 
                     tempPasswords.put(player.getUniqueId(), password);
@@ -118,17 +120,18 @@ public class AnvilGuiRenderer {
     }
 
     private static void openRegisterStep2(NaturalAuthPaper plugin, Player player, String prompt) {
+        String parsedPrompt = PlaceholderParser.parse(player, prompt);
         ItemStack itemLeft = new ItemStack(Material.PAPER);
         ItemMeta meta = itemLeft.getItemMeta();
         if (meta != null) {
-            meta.setDisplayName(prompt);
+            meta.setDisplayName(parsedPrompt);
             itemLeft.setItemMeta(meta);
         }
 
         new AnvilGUI.Builder()
                 .plugin(plugin)
                 .title(getFormattedTitle(plugin, player, "Daftar - Konfirmasi Password"))
-                .text(prompt)
+                .text(parsedPrompt)
                 .itemLeft(itemLeft)
                 .onClick((slot, stateSnapshot) -> {
                     if (slot != AnvilGUI.Slot.OUTPUT) {
@@ -144,7 +147,7 @@ public class AnvilGuiRenderer {
 
                     if (!firstPassword.equals(confirm)) {
                         player.sendMessage("§cKonfirmasi password tidak cocok! Silakan ulangi.");
-                        return Collections.singletonList(AnvilGUI.ResponseAction.replaceInputText(prompt));
+                        return Collections.singletonList(AnvilGUI.ResponseAction.replaceInputText(parsedPrompt));
                     }
 
                     tempPasswords.remove(player.getUniqueId());
@@ -212,17 +215,18 @@ public class AnvilGuiRenderer {
     }
 
     public static void openOtpGUI(NaturalAuthPaper plugin, Player player, String prompt) {
+        String parsedPrompt = PlaceholderParser.parse(player, prompt);
         ItemStack itemLeft = new ItemStack(Material.PAPER);
         ItemMeta meta = itemLeft.getItemMeta();
         if (meta != null) {
-            meta.setDisplayName(prompt);
+            meta.setDisplayName(parsedPrompt);
             itemLeft.setItemMeta(meta);
         }
 
         new AnvilGUI.Builder()
                 .plugin(plugin)
                 .title(getFormattedTitle(plugin, player, "Verifikasi OTP"))
-                .text("000000")
+                .text(parsedPrompt)
                 .itemLeft(itemLeft)
                 .onClick((slot, stateSnapshot) -> {
                     if (slot != AnvilGUI.Slot.OUTPUT) {
@@ -230,13 +234,13 @@ public class AnvilGuiRenderer {
                     }
 
                     String otp = stateSnapshot.getText().trim();
-                    if (otp.isEmpty() || otp.equalsIgnoreCase("000000")) {
+                    if (otp.isEmpty() || otp.equalsIgnoreCase(parsedPrompt)) {
                         player.sendMessage("§cMasukkan kode OTP 6 digit yang dikirim ke email Anda!");
-                        return Collections.singletonList(AnvilGUI.ResponseAction.replaceInputText("000000"));
+                        return Collections.singletonList(AnvilGUI.ResponseAction.replaceInputText(parsedPrompt));
                     }
                     if (!otp.matches("\\d{6}")) {
                         player.sendMessage("§cKode OTP harus 6 angka!");
-                        return Collections.singletonList(AnvilGUI.ResponseAction.replaceInputText("000000"));
+                        return Collections.singletonList(AnvilGUI.ResponseAction.replaceInputText(parsedPrompt));
                     }
 
                     submitOtpToVelocity(plugin, player, otp);
@@ -289,14 +293,7 @@ public class AnvilGuiRenderer {
             return defaultTitle;
         }
 
-        // Resolve placeholders if PlaceholderAPI is enabled
-        if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
-            logo = me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, logo);
-        }
-
-        // Translate color codes
-        logo = org.bukkit.ChatColor.translateAlternateColorCodes('&', logo);
-
+        logo = PlaceholderParser.parse(player, logo);
         return logo + " " + defaultTitle;
     }
 }
