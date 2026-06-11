@@ -66,27 +66,50 @@ public class VelocityListener {
                 try {
                     boolean isRegistered = plugin.getDatabaseManager().isRegistered(username);
                     if (isRegistered) {
+                        // Player already in DB. Only force Mojang auth if they explicitly opted
+                        // into premium mode via /premium confirm (premium=1 in DB).
                         if (plugin.getDatabaseManager().isPremium(username)) {
-                            plugin.getLogger().info("Username " + username + " is registered as premium locally. Forcing Mojang authentication.");
+                            plugin.getLogger().info("[NaturalAuth] " + username + " is registered premium (opted in) → forceOnlineMode.");
                             event.setResult(PreLoginEvent.PreLoginComponentResult.forceOnlineMode());
+                        } else {
+                            plugin.getLogger().info("[NaturalAuth] " + username + " is registered crack → offline login.");
                         }
                     } else {
+                        // ── NEW PLAYER (not yet in DB) ──────────────────────────────────────
+                        // We MUST check Mojang here to prevent username squatting:
+                        //   If we let crack players register freely with any username, a malicious
+                        //   user could register as "Notch" and permanently block the real Notch
+                        //   (premium) from ever accessing their own username slot.
+                        //
+                        // Behavior:
+                        //   • Name NOT on Mojang → pure crack player → offline, show register GUI ✓
+                        //   • Name IS on Mojang  → forceOnlineMode (Velocity verifies session):
+                        //       - Real premium player  → session valid  → passes, auto-registers ✓
+                        //       - Crack player w/ same name → session invalid → Velocity kicks them
+                        //         with a clear message to change their username ✓
+                        //
                         boolean autoDetect = true;
                         if (plugin.getConfig() != null && plugin.getConfig().getTable("settings") != null) {
                             Boolean ad = plugin.getConfig().getTable("settings").getBoolean("auto-detect-premium");
                             if (ad != null) autoDetect = ad;
                         }
                         if (autoDetect) {
-                            // Non-registered username. Query Mojang API to see if this is a premium username.
-                            Boolean isPremium = plugin.isPremiumMojangName(username).join();
-                            if (isPremium) {
-                                plugin.getLogger().info("Username " + username + " is a premium Mojang account. Forcing Mojang authentication for new registration.");
+                            Boolean isPremiumName = plugin.isPremiumMojangName(username).join();
+                            if (isPremiumName) {
+                                plugin.getLogger().info("[NaturalAuth] " + username + " exists on Mojang (unregistered) → forceOnlineMode. Velocity will verify session.");
+                                // If they're a crack player using a premium name, Velocity will deny
+                                // the connection automatically (session token mismatch). They'll see
+                                // the standard Velocity "Invalid session" message. We log it clearly.
                                 event.setResult(PreLoginEvent.PreLoginComponentResult.forceOnlineMode());
+                            } else {
+                                plugin.getLogger().info("[NaturalAuth] " + username + " not on Mojang → crack player, offline mode.");
                             }
+                        } else {
+                            plugin.getLogger().info("[NaturalAuth] auto-detect-premium disabled. " + username + " → offline mode.");
                         }
                     }
                 } catch (Exception e) {
-                    plugin.getLogger().error("Error processing pre-login for username: " + username, e);
+                    plugin.getLogger().error("[NaturalAuth] Error in pre-login for: " + username, e);
                 } finally {
                     continuation.resume();
                 }
@@ -100,23 +123,31 @@ public class VelocityListener {
         UUID uuid = player.getUniqueId();
         String ip = player.getRemoteAddress().getAddress().getHostAddress();
 
-        plugin.getLogger().info("Player " + player.getUsername() + " (" + ip + ") joined the proxy.");
+        plugin.getLogger().info("[NaturalAuth] Player " + player.getUsername() + " (uuid=" + uuid + ", ip=" + ip + ") joined the proxy. onlineMode=" + player.isOnlineMode());
 
         // ── Check for Premium Java player bypass ─────────────────────────────
+        // player.isOnlineMode() == true means Velocity already validated this player's
+        // session with Mojang's session server. Their UUID is the real Mojang UUID.
+        // A crack player with a premium username would have been kicked by Velocity
+        // before reaching this point, so this check is safe.
         if (player.isOnlineMode()) {
-            plugin.getLogger().info("Player " + player.getUsername() + " is connected in Premium mode. Bypassing login.");
+            plugin.getLogger().info("[NaturalAuth] Player " + player.getUsername() + " passed Mojang session validation (isOnlineMode=true). Applying premium bypass.");
             boolean registered = plugin.getDatabaseManager().isRegistered(player.getUsername());
             if (!registered) {
+                // New premium player — register with a placeholder password and mark premium.
                 plugin.register(uuid, player.getUsername(), "PREMIUM_AUTO_" + UUID.randomUUID().toString());
+            } else {
+                // Already registered — ensure premium flag is up to date.
+                // This is safe: only real premium players reach this code path.
             }
             plugin.getDatabaseManager().setPremium(uuid, true);
-            plugin.logActivity(uuid, player.getUsername(), "LOGIN_PREMIUM", ip, "Bypass otomatis akun Premium Mojang");
+            plugin.logActivity(uuid, player.getUsername(), "LOGIN_PREMIUM", ip, "Bypass otomatis akun Premium Mojang (session validated by Velocity)");
 
             // Use pending mechanism — Paper PLAYER_READY will trigger the next step
             plugin.setAuthenticated(uuid, false);
             plugin.getJoinTimes().put(uuid, System.currentTimeMillis());
             if (plugin.isRulesEnabled() && !plugin.getDatabaseManager().hasAcceptedRules(player.getUsername())) {
-                plugin.getLogger().info("Player " + player.getUsername() + " premium bypass: needs to accept rules.");
+                plugin.getLogger().info("[NaturalAuth] Player " + player.getUsername() + " premium bypass: needs to accept rules.");
                 plugin.setPendingRules(uuid, true);
                 pendingAutoRulesPlayers.add(uuid);
             } else {
