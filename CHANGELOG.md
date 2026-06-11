@@ -27,6 +27,21 @@ Dokumentasi riwayat pembaruan, perbaikan bug, dan rilis fitur untuk plugin **Nat
 
 ---
 
+## [v1.2.1] - 2026-06-11 — Security Hotfix: Premium Username Collision
+### 🐛 Perbaikan Bug Kritis
+- **Premium Username Collision Fix**: Memperbaiki bug di mana crack player yang menggunakan username yang kebetulan sama dengan akun Mojang premium dipaksa melalui autentikasi online-mode dan dikick secara permanen tanpa pesan yang jelas.
+- **Logika `onPreLogin` Direfaktor Total**: Pemisahan bersih antara dua jalur validasi:
+  - **Player sudah di DB & `premium=1`** → `forceOnlineMode()` (sudah eksplisit opt-in via `/premium confirm`)
+  - **Player baru (belum di DB) & nama ada di Mojang** → `forceOnlineMode()` agar Velocity memverifikasi session token secara langsung — player premium asli lolos, crack player dikick oleh Velocity sendiri
+  - **Player baru, nama tidak ada di Mojang** → offline/crack flow, muncul GUI register
+- **Anti-Username Squatting**: Mempertahankan pengecekan Mojang API untuk player baru guna mencegah crack player mendaftarkan slot username milik akun premium orang lain.
+
+### ⚡ Peningkatan
+- **Log Lebih Informatif**: Seluruh log di `onPreLogin` dan `onPostLogin` kini mencantumkan prefix `[NaturalAuth]`, UUID player, dan status `onlineMode` untuk memudahkan debugging.
+- **Komentar Inline Komprehensif**: Setiap cabang logika `onPreLogin` diberi penjelasan alasan teknis dan potensi exploit yang dimitigasi agar mudah dipelihara di masa depan.
+
+---
+
 ## [v1.1.0] - UX & Security Update
 ### ✨ Fitur Baru
 - **Premium Bypass & Auto-Detection**: Sistem bypass otomatis untuk player original (Java Premium) dan Bedrock Edition (via Floodgate/Geyser) tanpa perlu mengetik `/login`.
