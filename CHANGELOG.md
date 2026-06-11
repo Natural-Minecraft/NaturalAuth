@@ -30,6 +30,9 @@ Dokumentasi riwayat pembaruan, perbaikan bug, dan rilis fitur untuk plugin **Nat
 - **Custom GUI Confirmation untuk `/premium`**: Command `/premium` kini tidak lagi langsung mengubah status di database, melainkan membuka Custom GUI (native Dialog jika tersedia, atau AnvilGUI sebagai fallback).
 - **Random Captcha Verification**: Menambahkan verifikasi captcha acak (5 karakter alfanumerik `A-Z, a-z, 0-9`) di dalam GUI untuk memastikan konfirmasi dilakukan dengan sadar dan mencegah lockout akun akibat salah tekan.
 - **Tombol Konfirmasi**: GUI memuat teks peringatan premium, kolom input captcha, tombol "I'm Premium" untuk konfirmasi, dan tombol "Kembali" untuk membatalkan pendaftaran.
+- **Bypass ItemsAdder untuk Texture Logo**: Mengalihkan pemuatan gambar logo `intro.png` dari ItemsAdder ke sistem pemetaan custom font resource pack bawaan client secara langsung.
+- **Header Gambar intro.png di Semua Dialog**: Memperbarui Dialog Peraturan (Rules), Dialog Email Link, dan Dialog Konfirmasi Premium agar menampilkan gambar logo di bagian atas secara konsisten menggunakan karakter unicode `\uE001`.
+
 
 ---
 

@@ -266,17 +266,22 @@ public class DialogRenderer {
                 }, ClickCallback.Options.builder().build()))
                 .build();
 
+        List<DialogBody> bodyList = new ArrayList<>();
+        DialogBody logoBody = getLogoBody(plugin, player);
+        if (logoBody != null) bodyList.add(logoBody);
+        bodyList.addAll(List.of(
+                DialogBody.plainMessage(Component.text("§6§lPERATURAN SERVER NATURALSMP")),
+                DialogBody.plainMessage(Component.text("§f1. Dilarang menggunakan cheat, hack, atau exploit.")),
+                DialogBody.plainMessage(Component.text("§f2. Saling menghormati sesama player dan staff.")),
+                DialogBody.plainMessage(Component.text("§f3. Dilarang spamming, promosi, atau toxic.")),
+                DialogBody.plainMessage(Component.text("§f4. Patuhi petunjuk dan keputusan staff.")),
+                DialogBody.plainMessage(Component.text("§f5. Bermainlah dengan jujur dan bersenang-senang!"))
+        ));
+
         Dialog dialog = Dialog.create(builder -> builder.empty()
                 .base(DialogBase.builder(Component.text("Peraturan Server"))
                         .canCloseWithEscape(false)
-                        .body(List.of(
-                                DialogBody.plainMessage(Component.text("§6§lPERATURAN SERVER NATURALSMP")),
-                                DialogBody.plainMessage(Component.text("§f1. Dilarang menggunakan cheat, hack, atau exploit.")),
-                                DialogBody.plainMessage(Component.text("§f2. Saling menghormati sesama player dan staff.")),
-                                DialogBody.plainMessage(Component.text("§f3. Dilarang spamming, promosi, atau toxic.")),
-                                DialogBody.plainMessage(Component.text("§f4. Patuhi petunjuk dan keputusan staff.")),
-                                DialogBody.plainMessage(Component.text("§f5. Bermainlah dengan jujur dan bersenang-senang!"))
-                        ))
+                        .body(bodyList)
                         .inputs(List.of(agreeCheckbox))
                         .build())
                 .type(DialogType.confirmation(acceptButton, declineButton))
@@ -334,18 +339,23 @@ public class DialogRenderer {
                 }, ClickCallback.Options.builder().build()))
                 .build();
 
+        List<DialogBody> bodyList = new ArrayList<>();
+        DialogBody logoBody = getLogoBody(plugin, player);
+        if (logoBody != null) bodyList.add(logoBody);
+        bodyList.addAll(List.of(
+                DialogBody.plainMessage(Component.text("§a§l✔ REGISTRASI BERHASIL!")),
+                DialogBody.plainMessage(Component.text("")),
+                DialogBody.plainMessage(Component.text("§eMengaitkan email sangat direkomendasikan agar:")),
+                DialogBody.plainMessage(Component.text("§f1. Bisa reset password mandiri via web jika lupa.")),
+                DialogBody.plainMessage(Component.text("§f2. Bisa ganti email/password tanpa hubungi Admin.")),
+                DialogBody.plainMessage(Component.text("")),
+                DialogBody.plainMessage(Component.text("§7Masukkan email Anda di bawah untuk mengaitkan:"))
+        ));
+
         Dialog dialog = Dialog.create(builder -> builder.empty()
                 .base(DialogBase.builder(Component.text("Kaitkan Email"))
                         .canCloseWithEscape(false)
-                        .body(List.of(
-                                DialogBody.plainMessage(Component.text("§a§l✔ REGISTRASI BERHASIL!")),
-                                DialogBody.plainMessage(Component.text("")),
-                                DialogBody.plainMessage(Component.text("§eMengaitkan email sangat direkomendasikan agar:")),
-                                DialogBody.plainMessage(Component.text("§f1. Bisa reset password mandiri via web jika lupa.")),
-                                DialogBody.plainMessage(Component.text("§f2. Bisa ganti email/password tanpa hubungi Admin.")),
-                                DialogBody.plainMessage(Component.text("")),
-                                DialogBody.plainMessage(Component.text("§7Masukkan email Anda di bawah untuk mengaitkan:"))
-                        ))
+                        .body(bodyList)
                         .inputs(List.of(emailInput))
                         .build())
                 .type(DialogType.confirmation(submitButton, skipButton))
@@ -401,15 +411,20 @@ public class DialogRenderer {
                 }, ClickCallback.Options.builder().build()))
                 .build();
 
+        List<DialogBody> bodyList = new ArrayList<>();
+        DialogBody logoBody = getLogoBody(plugin, player);
+        if (logoBody != null) bodyList.add(logoBody);
+        bodyList.addAll(List.of(
+                DialogBody.plainMessage(Component.text("§c§lApakah kamu yakin akun mu premium?")),
+                DialogBody.plainMessage(Component.text("")),
+                DialogBody.plainMessage(Component.text("§eIsi Captcha: §f" + captcha)),
+                DialogBody.plainMessage(Component.text("§7Ketik captcha di bawah untuk mengonfirmasi."))
+        ));
+
         Dialog dialog = Dialog.create(builder -> builder.empty()
                 .base(DialogBase.builder(Component.text("Konfirmasi Premium"))
                         .canCloseWithEscape(true)
-                        .body(List.of(
-                                DialogBody.plainMessage(Component.text("§c§lApakah kamu yakin akun mu premium?")),
-                                DialogBody.plainMessage(Component.text("")),
-                                DialogBody.plainMessage(Component.text("§eIsi Captcha: §f" + captcha)),
-                                DialogBody.plainMessage(Component.text("§7Ketik captcha di bawah untuk mengonfirmasi."))
-                        ))
+                        .body(bodyList)
                         .inputs(List.of(captchaInput))
                         .build())
                 .type(DialogType.confirmation(imPremiumButton, backButton))
