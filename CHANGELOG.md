@@ -25,6 +25,12 @@ Dokumentasi riwayat pembaruan, perbaikan bug, dan rilis fitur untuk plugin **Nat
 - **Session Auto-Login Fix**: Menunda auto-login hingga event `PACKET_PLAYER_READY` diterima untuk menjamin kelancaran client loading.
 - **Particle Compatibility**: Update `Particle.SPELL_WITCH` ke `Particle.WITCH` untuk menjaga kompatibilitas penuh dengan Paper/Spigot 1.21+.
 
+## [v1.2.2] - 2026-06-12 — Premium GUI Confirmation
+### ✨ Fitur Baru
+- **Custom GUI Confirmation untuk `/premium`**: Command `/premium` kini tidak lagi langsung mengubah status di database, melainkan membuka Custom GUI (native Dialog jika tersedia, atau AnvilGUI sebagai fallback).
+- **Random Captcha Verification**: Menambahkan verifikasi captcha acak (5 karakter alfanumerik `A-Z, a-z, 0-9`) di dalam GUI untuk memastikan konfirmasi dilakukan dengan sadar dan mencegah lockout akun akibat salah tekan.
+- **Tombol Konfirmasi**: GUI memuat teks peringatan premium, kolom input captcha, tombol "I'm Premium" untuk konfirmasi, dan tombol "Kembali" untuk membatalkan pendaftaran.
+
 ---
 
 ## [v1.2.1] - 2026-06-11 — Security Hotfix: Premium Username Collision

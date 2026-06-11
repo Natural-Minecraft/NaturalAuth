@@ -447,6 +447,23 @@ public class VelocityListener {
                         }
                     }
                 });
+            } else if (packetId == AuthBridgeProtocol.PACKET_SUBMIT_PREMIUM_CONFIRM) {
+                UUID uuid = UUID.fromString(dis.readUTF());
+                plugin.getServer().getPlayer(uuid).ifPresent(player -> {
+                    plugin.getDatabaseManager().setPremium(player.getUniqueId(), true);
+                    plugin.getDatabaseManager().updatePassword(player.getUniqueId(), "");
+                    plugin.logActivity(player.getUniqueId(), player.getUsername(), "PREMIUM_ON", player.getRemoteAddress().getAddress().getHostAddress(), "Mengaktifkan mode Premium Mojang");
+
+                    String msg = "§aFitur Premium diaktifkan! Silakan join kembali menggunakan launcher original Anda secara aman.";
+                    if (plugin.getConfig() != null && plugin.getConfig().getTable("messages") != null) {
+                        String configMsg = plugin.getConfig().getTable("messages").getString("premium-enabled");
+                        if (configMsg != null) {
+                            msg = configMsg.replace("&", "§");
+                        }
+                    }
+
+                    player.disconnect(Component.text(msg));
+                });
             }
 
         } catch (IOException e) {

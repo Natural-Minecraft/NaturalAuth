@@ -368,4 +368,68 @@ public class DialogRenderer {
             e.printStackTrace();
         }
     }
+
+    public static void openPremiumDialog(NaturalAuthPaper plugin, Player player, String captcha) {
+        TextDialogInput captchaInput = DialogInput.text(
+                "captcha_input",
+                200,
+                Component.text("Ketik Captcha: " + captcha),
+                true,
+                "",
+                72,
+                null
+        );
+
+        ActionButton imPremiumButton = ActionButton.builder(Component.text("I'm Premium"))
+                .action(DialogAction.customClick((response, audience) -> {
+                    String typed = response.getText("captcha_input");
+                    if (typed == null || !typed.equals(captcha)) {
+                        audience.closeDialog();
+                        player.sendMessage("§c§l[!] §r§cCaptcha salah atau tidak cocok!");
+                        return;
+                    }
+
+                    audience.closeDialog();
+                    submitPremiumConfirmToVelocity(plugin, player);
+                }, ClickCallback.Options.builder().build()))
+                .build();
+
+        ActionButton backButton = ActionButton.builder(Component.text("Kembali"))
+                .action(DialogAction.customClick((response, audience) -> {
+                    audience.closeDialog();
+                    player.sendMessage("§e§l[!] §r§ePendaftaran premium dibatalkan.");
+                }, ClickCallback.Options.builder().build()))
+                .build();
+
+        Dialog dialog = Dialog.create(builder -> builder.empty()
+                .base(DialogBase.builder(Component.text("Konfirmasi Premium"))
+                        .canCloseWithEscape(true)
+                        .body(List.of(
+                                DialogBody.plainMessage(Component.text("§c§lApakah kamu yakin akun mu premium?")),
+                                DialogBody.plainMessage(Component.text("")),
+                                DialogBody.plainMessage(Component.text("§eIsi Captcha: §f" + captcha)),
+                                DialogBody.plainMessage(Component.text("§7Ketik captcha di bawah untuk mengonfirmasi."))
+                        ))
+                        .inputs(List.of(captchaInput))
+                        .build())
+                .type(DialogType.confirmation(imPremiumButton, backButton))
+        );
+
+        player.showDialog(dialog);
+    }
+
+    private static void submitPremiumConfirmToVelocity(NaturalAuthPaper plugin, Player player) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             DataOutputStream dos = new DataOutputStream(baos)) {
+
+            dos.writeByte(AuthBridgeProtocol.PACKET_SUBMIT_PREMIUM_CONFIRM);
+            dos.writeUTF(player.getUniqueId().toString());
+
+            player.sendPluginMessage(plugin, AuthBridgeProtocol.FULL_CHANNEL, baos.toByteArray());
+        } catch (IOException e) {
+            plugin.getLogger().severe("Failed to send PACKET_SUBMIT_PREMIUM_CONFIRM to Velocity!");
+            e.printStackTrace();
+        }
+    }
 }
+

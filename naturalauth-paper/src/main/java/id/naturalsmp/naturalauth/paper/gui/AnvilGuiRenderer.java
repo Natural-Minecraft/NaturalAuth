@@ -296,4 +296,53 @@ public class AnvilGuiRenderer {
         logo = PlaceholderParser.parse(player, logo);
         return logo + " " + defaultTitle;
     }
+
+    public static void openPremiumAnvil(NaturalAuthPaper plugin, Player player, String captcha) {
+        ItemStack itemLeft = new ItemStack(Material.PAPER);
+        ItemMeta meta = itemLeft.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName("Captcha: " + captcha);
+            meta.setLore(Arrays.asList("§7Apakah kamu yakin akun mu premium?", "§7Tulis captcha di atas untuk konfirmasi."));
+            itemLeft.setItemMeta(meta);
+        }
+
+        new AnvilGUI.Builder()
+                .plugin(plugin)
+                .title("Tulis Captcha: " + captcha)
+                .text("Tulis disini")
+                .itemLeft(itemLeft)
+                .onClick((slot, stateSnapshot) -> {
+                    if (slot != AnvilGUI.Slot.OUTPUT) {
+                        return Collections.emptyList();
+                    }
+
+                    String text = stateSnapshot.getText();
+                    if (text == null || !text.trim().equals(captcha)) {
+                        player.sendMessage("§c§l[!] §r§cCaptcha salah atau tidak cocok!");
+                        return Collections.singletonList(AnvilGUI.ResponseAction.replaceInputText("Tulis disini"));
+                    }
+
+                    submitPremiumConfirmToVelocity(plugin, player);
+                    return Arrays.asList(AnvilGUI.ResponseAction.close());
+                })
+                .onClose(stateSnapshot -> {
+                    // Closed/cancelled
+                })
+                .open(player);
+    }
+
+    private static void submitPremiumConfirmToVelocity(NaturalAuthPaper plugin, Player player) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             DataOutputStream dos = new DataOutputStream(baos)) {
+
+            dos.writeByte(AuthBridgeProtocol.PACKET_SUBMIT_PREMIUM_CONFIRM);
+            dos.writeUTF(player.getUniqueId().toString());
+
+            player.sendPluginMessage(plugin, AuthBridgeProtocol.FULL_CHANNEL, baos.toByteArray());
+        } catch (IOException e) {
+            plugin.getLogger().severe("Failed to send PACKET_SUBMIT_PREMIUM_CONFIRM to Velocity!");
+            e.printStackTrace();
+        }
+    }
 }
+

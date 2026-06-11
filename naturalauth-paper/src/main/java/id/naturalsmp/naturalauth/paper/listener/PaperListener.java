@@ -209,6 +209,21 @@ public class PaperListener implements Listener, PluginMessageListener {
                     AnvilGuiRenderer.openOtpGUI(plugin, target, prompt);
                 }
 
+            } else if (packetId == AuthBridgeProtocol.PACKET_OPEN_PREMIUM_GUI) {
+                UUID uuid = UUID.fromString(dis.readUTF());
+                String captcha = dis.readUTF();
+                Player target = Bukkit.getPlayer(uuid);
+                if (target != null && target.isOnline()) {
+                    target.closeInventory();
+                    if (id.naturalsmp.naturalauth.paper.gui.DialogRenderer.isDialogApiAvailable()) {
+                        plugin.getLogger().info("[NaturalAuth-Debug] Opening Native Premium Dialog for " + target.getName());
+                        id.naturalsmp.naturalauth.paper.gui.DialogRenderer.openPremiumDialog(plugin, target, captcha);
+                    } else {
+                        plugin.getLogger().info("[NaturalAuth-Debug] Opening Anvil GUI for Premium for " + target.getName());
+                        AnvilGuiRenderer.openPremiumAnvil(plugin, target, captcha);
+                    }
+                }
+
             } else if (packetId == AuthBridgeProtocol.PACKET_WHOIS_REQUEST) {
                 UUID adminUuid       = UUID.fromString(dis.readUTF());
                 String targetUsername = dis.readUTF();

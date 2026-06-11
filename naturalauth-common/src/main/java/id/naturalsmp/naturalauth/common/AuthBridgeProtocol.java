@@ -23,5 +23,10 @@ public class AuthBridgeProtocol {
     public static final byte PACKET_SUBMIT_EMAIL     = 8; // Paper → Velocity: player submitted email (UUID, email)
     public static final byte PACKET_SUBMIT_OTP       = 11; // Paper → Velocity: player submitted OTP (UUID, otpCode)
     public static final byte PACKET_STATUS_CHECK     = 15; // Paper → Velocity: query current auth status (UUID)
+
+    // Premium GUI Handshake
+    public static final byte PACKET_OPEN_PREMIUM_GUI = 16; // Velocity → Paper: open premium confirmation GUI (UUID, captcha)
+    public static final byte PACKET_SUBMIT_PREMIUM_CONFIRM = 17; // Paper → Velocity: confirm player premium status (UUID)
 }
+
 
