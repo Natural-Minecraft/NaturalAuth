@@ -55,4 +55,14 @@ premium-enabled = "&aFitur Premium diaktifkan! Silakan join kembali menggunakan 
 # Message sent when player toggles premium mode off (returns to cracked mode)
 cracked-enabled = "&aFitur Cracked diaktifkan! Silakan masuk kembali dan gunakan password Anda."
 
+[resource-pack]
+# Set to true to send the custom resource pack containing the logo
+enabled = true
+url = "https://raw.githubusercontent.com/Natural-Minecraft/NaturalAuth/main/resourcepack/NaturalSMP-Logo-Pack.zip"
+# SHA-1 hash of the zip file (automatically calculated during generation)
+hash = "e1a635ee19d6073703c63bf4242c53b32de80f28"
+# Prompt shown to the user when downloading the pack
+prompt = "&aSilakan unduh resource pack untuk memuat logo dan GUI NaturalSMP secara optimal!"
+required = false
+
 

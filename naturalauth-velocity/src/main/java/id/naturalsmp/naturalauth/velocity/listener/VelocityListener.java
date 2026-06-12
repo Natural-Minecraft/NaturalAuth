@@ -122,8 +122,12 @@ public class VelocityListener {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
         String ip = player.getRemoteAddress().getAddress().getHostAddress();
-
         plugin.getLogger().info("[NaturalAuth] Player " + player.getUsername() + " (uuid=" + uuid + ", ip=" + ip + ") joined the proxy. onlineMode=" + player.isOnlineMode());
+
+        // Send Resource Pack if enabled (Java players only)
+        if (plugin.isResourcePackEnabled() && !FloodgateHelper.isFloodgatePlayer(uuid)) {
+            plugin.sendResourcePack(player);
+        }
 
         // ── Check for Premium Java player bypass ─────────────────────────────
         // player.isOnlineMode() == true means Velocity already validated this player's

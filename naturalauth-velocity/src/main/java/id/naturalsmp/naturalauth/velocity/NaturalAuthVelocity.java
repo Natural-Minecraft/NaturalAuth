@@ -28,6 +28,8 @@ import com.velocitypowered.api.command.CommandMeta;
 import net.kyori.adventure.text.Component;
 import org.mindrot.jbcrypt.BCrypt;
 import org.slf4j.Logger;
+import com.velocitypowered.api.proxy.player.ResourcePackInfo;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 import java.io.File;
 import java.io.IOException;
@@ -59,6 +61,13 @@ public class NaturalAuthVelocity {
     private Toml config;
     private VelocityListener velocityListener;
     private final java.net.http.HttpClient httpClient = java.net.http.HttpClient.newHttpClient();
+
+    // Resource Pack Configuration
+    private boolean resourcePackEnabled = false;
+    private String resourcePackUrl = "";
+    private byte[] resourcePackHash = null;
+    private Component resourcePackPrompt = null;
+    private boolean resourcePackRequired = false;
 
     public static final MinecraftChannelIdentifier BRIDGE_CHANNEL =
             MinecraftChannelIdentifier.from(AuthBridgeProtocol.FULL_CHANNEL);
@@ -200,6 +209,37 @@ public class NaturalAuthVelocity {
         }
 
         config = new Toml().read(configFile);
+
+        // Load resource-pack settings
+        Toml rpSection = config.getTable("resource-pack");
+        if (rpSection != null) {
+            resourcePackEnabled = rpSection.getBoolean("enabled", false);
+            resourcePackUrl = rpSection.getString("url", "");
+            String hashHex = rpSection.getString("hash", "");
+            if (hashHex != null && !hashHex.isEmpty()) {
+                try {
+                    resourcePackHash = hexStringToByteArray(hashHex.trim());
+                } catch (Exception e) {
+                    logger.error("Invalid SHA-1 hash in resource-pack settings: " + hashHex, e);
+                    resourcePackHash = null;
+                }
+            } else {
+                resourcePackHash = null;
+            }
+            String promptText = rpSection.getString("prompt", "");
+            if (promptText != null && !promptText.isEmpty()) {
+                resourcePackPrompt = LegacyComponentSerializer.legacyAmpersand().deserialize(promptText);
+            } else {
+                resourcePackPrompt = null;
+            }
+            resourcePackRequired = rpSection.getBoolean("required", false);
+        } else {
+            resourcePackEnabled = false;
+            resourcePackUrl = "";
+            resourcePackHash = null;
+            resourcePackPrompt = null;
+            resourcePackRequired = false;
+        }
     }
 
     /**
@@ -466,5 +506,42 @@ public class NaturalAuthVelocity {
         server.getScheduler().buildTask(this, () -> {
             databaseManager.logActivity(uuid, username, action, ip, details);
         }).schedule();
+    }
+
+    // ───── Resource Pack ─────────────────────────────────────────────────────
+
+    public boolean isResourcePackEnabled() {
+        return resourcePackEnabled;
+    }
+
+    public void sendResourcePack(Player player) {
+        if (resourcePackUrl == null || resourcePackUrl.isEmpty()) {
+            return;
+        }
+        try {
+            ResourcePackInfo.Builder builder = server.createResourcePackBuilder(resourcePackUrl);
+            if (resourcePackHash != null) {
+                builder.setHash(resourcePackHash);
+            }
+            if (resourcePackPrompt != null) {
+                builder.setPrompt(resourcePackPrompt);
+            }
+            builder.setShouldForce(resourcePackRequired);
+            
+            player.sendResourcePackOffer(builder.build());
+            logger.info("Sent resource pack offer to " + player.getUsername() + " (" + resourcePackUrl + ")");
+        } catch (Exception e) {
+            logger.error("Failed to send resource pack offer to " + player.getUsername(), e);
+        }
+    }
+
+    private static byte[] hexStringToByteArray(String s) {
+        int len = s.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                                 + Character.digit(s.charAt(i+1), 16));
+        }
+        return data;
     }
 }
