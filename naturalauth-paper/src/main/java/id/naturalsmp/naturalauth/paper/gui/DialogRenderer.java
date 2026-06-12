@@ -112,6 +112,7 @@ public class DialogRenderer {
         DialogBody logoBody = getLogoBody(plugin, player);
         if (logoBody != null) {
             loginBody.add(DialogBody.plainMessage(Component.text("")));
+            loginBody.add(DialogBody.plainMessage(Component.text("")));
             loginBody.add(logoBody);
             loginBody.add(DialogBody.plainMessage(Component.text("")));
         }
@@ -186,6 +187,7 @@ public class DialogRenderer {
         List<DialogBody> registerBody = new ArrayList<>();
         DialogBody logoBodyReg = getLogoBody(plugin, player);
         if (logoBodyReg != null) {
+            registerBody.add(DialogBody.plainMessage(Component.text("")));
             registerBody.add(DialogBody.plainMessage(Component.text("")));
             registerBody.add(logoBodyReg);
             registerBody.add(DialogBody.plainMessage(Component.text("")));
@@ -278,6 +280,7 @@ public class DialogRenderer {
         DialogBody logoBody = getLogoBody(plugin, player);
         if (logoBody != null) {
             bodyList.add(DialogBody.plainMessage(Component.text("")));
+            bodyList.add(DialogBody.plainMessage(Component.text("")));
             bodyList.add(logoBody);
             bodyList.add(DialogBody.plainMessage(Component.text("")));
         }
@@ -355,6 +358,7 @@ public class DialogRenderer {
         DialogBody logoBody = getLogoBody(plugin, player);
         if (logoBody != null) {
             bodyList.add(DialogBody.plainMessage(Component.text("")));
+            bodyList.add(DialogBody.plainMessage(Component.text("")));
             bodyList.add(logoBody);
             bodyList.add(DialogBody.plainMessage(Component.text("")));
         }
@@ -430,6 +434,7 @@ public class DialogRenderer {
         List<DialogBody> bodyList = new ArrayList<>();
         DialogBody logoBody = getLogoBody(plugin, player);
         if (logoBody != null) {
+            bodyList.add(DialogBody.plainMessage(Component.text("")));
             bodyList.add(DialogBody.plainMessage(Component.text("")));
             bodyList.add(logoBody);
             bodyList.add(DialogBody.plainMessage(Component.text("")));
