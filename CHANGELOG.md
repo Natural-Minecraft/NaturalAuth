@@ -2,6 +2,18 @@
 
 Dokumentasi riwayat pembaruan, perbaikan bug, dan rilis fitur untuk plugin **NaturalAuth** (Velocity + Paper).
 
+## [v1.2.5] - 2026-06-13 — Pre-Registration Form Flow & Cooldown Update
+### ✨ Fitur Baru
+- **Pre-Registration Flow**: Flow pendaftaran awal yang interaktif untuk player unregistered:
+  - **Language Selection (`PRE_REG_LANG`)**: Dialog pilihan bahasa saat pertama kali gabung (Bahasa Indonesia / English).
+  - **Account Type Choice (`PRE_REG_TYPE`)**: Dialog pilihan tipe akun Premium vs Cracked dengan warning lockout.
+  - **Premium Captcha Verification (`PRE_REG_PREMIUM`)**: Verifikasi captcha alfanumerik 6-karakter `A-Za-z0-9` untuk pendaftaran premium otomatis.
+
+### ⚡ Peningkatan
+- **Dynamic Captcha Refresh**: Mismatch captcha tidak lagi memicu error dialog statis, melainkan mengirim chat error warning dan menyegarkan dialog input dengan captcha baru secara instan.
+- **Brute Force Cooldown Update**: Meningkatkan durasi cooldown login gagal dari 60 detik menjadi 120 detik (2 menit) dan mengubah pesan putus koneksi (kick) brute-force agar menampilkan durasi cooldown secara dinamis.
+- **Register Cooldown Bypass**: Memastikan cooldown brute-force hanya berlaku untuk login saja, tidak untuk registrasi akun baru.
+
 ---
 
 ## [Unreleased] / [v1.2.0] - Premium & Limbo Waiting Room Update
