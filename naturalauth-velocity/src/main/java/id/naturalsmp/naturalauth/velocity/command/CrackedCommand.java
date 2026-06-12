@@ -1,5 +1,7 @@
 package id.naturalsmp.naturalauth.velocity.command;
 
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+
 import com.velocitypowered.api.command.SimpleCommand;
 import com.velocitypowered.api.proxy.Player;
 import id.naturalsmp.naturalauth.velocity.NaturalAuthVelocity;
@@ -16,21 +18,21 @@ public class CrackedCommand implements SimpleCommand {
     @Override
     public void execute(Invocation invocation) {
         if (!(invocation.source() instanceof Player player)) {
-            invocation.source().sendMessage(Component.text("§cCommand ini hanya dapat digunakan oleh player!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cCommand ini hanya dapat digunakan oleh player!"));
             return;
         }
 
         String[] args = invocation.arguments();
         if (args.length == 0 || !args[0].equalsIgnoreCase("confirm")) {
             // Send cracked warning UI
-            player.sendMessage(Component.text("§e§l┌────────────────────────────────────────┐"));
-            player.sendMessage(Component.text("§e§l│              [!] PERINGATAN [!]              │"));
-            player.sendMessage(Component.text("§e§l└────────────────────────────────────────┘"));
-            player.sendMessage(Component.text("§7Dengan mengaktifkan status Cracked, server tidak akan"));
-            player.sendMessage(Component.text("§7memaksa verifikasi online Mojang untuk akun Anda."));
-            player.sendMessage(Component.text("§eAnda akan diminta memasukkan password saat join kembali."));
+            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e§l┌────────────────────────────────────────┐"));
+            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e§l│              [!] PERINGATAN [!]              │"));
+            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e§l└────────────────────────────────────────┘"));
+            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§7Dengan mengaktifkan status Cracked, server tidak akan"));
+            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§7memaksa verifikasi online Mojang untuk akun Anda."));
+            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§eAnda akan diminta memasukkan password saat join kembali."));
             player.sendMessage(Component.text(""));
-            player.sendMessage(Component.text("§eKetik §a/cracked confirm §euntuk mengaktifkan."));
+            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§eKetik §a/cracked confirm §euntuk mengaktifkan."));
             return;
         }
 

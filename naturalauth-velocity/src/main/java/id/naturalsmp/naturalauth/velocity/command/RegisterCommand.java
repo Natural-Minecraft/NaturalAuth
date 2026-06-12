@@ -1,5 +1,7 @@
 package id.naturalsmp.naturalauth.velocity.command;
 
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+
 import com.velocitypowered.api.command.SimpleCommand;
 import com.velocitypowered.api.proxy.Player;
 import id.naturalsmp.naturalauth.velocity.NaturalAuthVelocity;
@@ -28,12 +30,12 @@ public class RegisterCommand implements SimpleCommand {
     @Override
     public void execute(Invocation invocation) {
         if (!(invocation.source() instanceof Player player)) {
-            invocation.source().sendMessage(Component.text("§cCommand ini hanya dapat digunakan oleh player!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cCommand ini hanya dapat digunakan oleh player!"));
             return;
         }
 
         if (plugin.isAuthenticated(player.getUniqueId())) {
-            player.sendMessage(Component.text("§a§lNaturalAuth §r§eAnda sudah login! Menyinkronkan status login ke server..."));
+            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§a§lNaturalAuth §r§eAnda sudah login! Menyinkronkan status login ke server..."));
             if (plugin.getVelocityListener() != null) {
                 plugin.getVelocityListener().finalizeAuth(player);
             }
@@ -42,7 +44,7 @@ public class RegisterCommand implements SimpleCommand {
 
         String[] args = invocation.arguments();
         if (args.length < 2) {
-            player.sendMessage(Component.text("§cGunakan: §e/register <password> <konfirmasiPassword>"));
+            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cGunakan: §e/register <password> <konfirmasiPassword>"));
             return;
         }
 
@@ -51,19 +53,19 @@ public class RegisterCommand implements SimpleCommand {
 
         // ── Password strength validation ───────────────────────────────────
         if (password.length() < 6) {
-            player.sendMessage(Component.text("§cPassword minimal harus §e6 karakter§c! (sekarang: " + password.length() + " karakter)"));
+            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cPassword minimal harus §e6 karakter§c! (sekarang: " + password.length() + " karakter)"));
             return;
         }
         if (password.equalsIgnoreCase(player.getUsername())) {
-            player.sendMessage(Component.text("§cPassword tidak boleh sama dengan username Anda!"));
+            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cPassword tidak boleh sama dengan username Anda!"));
             return;
         }
         if (COMMON_PASSWORDS.contains(password.toLowerCase())) {
-            player.sendMessage(Component.text("§cPassword terlalu lemah! Hindari password umum seperti '123456' atau 'password'."));
+            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cPassword terlalu lemah! Hindari password umum seperti '123456' atau 'password'."));
             return;
         }
         if (!password.equals(confirmPassword)) {
-            player.sendMessage(Component.text("§cKonfirmasi password tidak cocok! Pastikan keduanya sama."));
+            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cKonfirmasi password tidak cocok! Pastikan keduanya sama."));
             return;
         }
 
@@ -71,7 +73,7 @@ public class RegisterCommand implements SimpleCommand {
         CompletableFuture.supplyAsync(() -> plugin.getDatabaseManager().isRegistered(player.getUsername()))
             .thenAcceptAsync(registered -> {
                 if (registered) {
-                    player.sendMessage(Component.text("§cAkun Anda sudah terdaftar! Gunakan §e/login <password>§c untuk masuk."));
+                    player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cAkun Anda sudah terdaftar! Gunakan §e/login <password>§c untuk masuk."));
                     return;
                 }
 
@@ -79,19 +81,19 @@ public class RegisterCommand implements SimpleCommand {
                 CompletableFuture.supplyAsync(() -> plugin.register(player.getUniqueId(), player.getUsername(), password))
                     .thenAcceptAsync(success -> {
                         if (success) {
-                            player.sendMessage(Component.text("§a§l✔ REGISTRASI BERHASIL!"));
-                            player.sendMessage(Component.text("§7Username: §f" + player.getUsername()));
-                            player.sendMessage(Component.text("§7Akun Anda telah dibuat dan siap digunakan."));
+                            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§a§l✔ REGISTRASI BERHASIL!"));
+                            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§7Username: §f" + player.getUsername()));
+                            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§7Akun Anda telah dibuat dan siap digunakan."));
 
                             // Trigger email linkage prompt after registration
                             plugin.getServer().getScheduler().buildTask(plugin, () -> {
                                 if (player.isActive()) {
-                                    player.sendMessage(Component.text("§e§l➤ §r§eLangkah berikutnya: Kaitkan email untuk keamanan akun"));
-                                    player.sendMessage(Component.text("§b/email <alamatEmail> §7— menerima OTP & reset password via email."));
+                                    player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e§l➤ §r§eLangkah berikutnya: Kaitkan email untuk keamanan akun"));
+                                    player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§b/email <alamatEmail> §7— menerima OTP & reset password via email."));
                                 }
                             }).delay(500, TimeUnit.MILLISECONDS).schedule();
                         } else {
-                            player.sendMessage(Component.text("§cRegistrasi gagal. Silakan coba kembali atau hubungi admin!"));
+                            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cRegistrasi gagal. Silakan coba kembali atau hubungi admin!"));
                         }
                     });
             });

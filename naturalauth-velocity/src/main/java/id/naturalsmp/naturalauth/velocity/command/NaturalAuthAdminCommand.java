@@ -1,5 +1,7 @@
 package id.naturalsmp.naturalauth.velocity.command;
 
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+
 import com.velocitypowered.api.command.SimpleCommand;
 import com.velocitypowered.api.proxy.Player;
 import id.naturalsmp.naturalauth.velocity.NaturalAuthVelocity;
@@ -76,67 +78,67 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
     }
 
     private void sendHelp(Invocation invocation) {
-        invocation.source().sendMessage(Component.text("§b§l⚡ NaturalAuth Admin Commands ⚡"));
-        invocation.source().sendMessage(Component.text("§e/na admin forcelogin <player> §7- Paksa login player"));
-        invocation.source().sendMessage(Component.text("§e/na admin forceregister <player> <pass> <pass> §7- Daftarkan player"));
-        invocation.source().sendMessage(Component.text("§e/na admin changepassword <player> <newPass> §7- Ganti sandi player"));
-        invocation.source().sendMessage(Component.text("§e/na admin changeemail <player> <newEmail> §7- Ganti email player"));
-        invocation.source().sendMessage(Component.text("§e/na admin unregister <player> §7- Hapus akun player"));
-        invocation.source().sendMessage(Component.text("§e/na admin kick <player/all/*/**> §7- Kick player"));
-        invocation.source().sendMessage(Component.text("§e/na admin getotp <email> §7- Lihat OTP aktif email"));
-        invocation.source().sendMessage(Component.text("§e/na admin resendotp <email> §7- Kirim ulang OTP email"));
-        invocation.source().sendMessage(Component.text("§e/na admin whois <player> §7- Lihat profil detil (Chest GUI)"));
-        invocation.source().sendMessage(Component.text("§e/na admin setpremium <player> §7- Set status premium"));
-        invocation.source().sendMessage(Component.text("§e/na admin setcracked <player> §7- Set status cracked"));
-        invocation.source().sendMessage(Component.text("§e/na admin reload §7- Reload config.toml tanpa restart server"));
+        invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§b§l⚡ NaturalAuth Admin Commands ⚡"));
+        invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e/na admin forcelogin <player> §7- Paksa login player"));
+        invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e/na admin forceregister <player> <pass> <pass> §7- Daftarkan player"));
+        invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e/na admin changepassword <player> <newPass> §7- Ganti sandi player"));
+        invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e/na admin changeemail <player> <newEmail> §7- Ganti email player"));
+        invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e/na admin unregister <player> §7- Hapus akun player"));
+        invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e/na admin kick <player/all/*/**> §7- Kick player"));
+        invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e/na admin getotp <email> §7- Lihat OTP aktif email"));
+        invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e/na admin resendotp <email> §7- Kirim ulang OTP email"));
+        invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e/na admin whois <player> §7- Lihat profil detil (Chest GUI)"));
+        invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e/na admin setpremium <player> §7- Set status premium"));
+        invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e/na admin setcracked <player> §7- Set status cracked"));
+        invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e/na admin reload §7- Reload config.toml tanpa restart server"));
     }
 
     private void handleReload(Invocation invocation) {
         if (!invocation.source().hasPermission("naturalauth.admin")) {
-            invocation.source().sendMessage(Component.text("§cKamu tidak punya izin untuk melakukan ini!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cKamu tidak punya izin untuk melakukan ini!"));
             return;
         }
-        invocation.source().sendMessage(Component.text("§e[NaturalAuth] §7Sedang mereload konfigurasi..."));
+        invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e[NaturalAuth] §7Sedang mereload konfigurasi..."));
         try {
             plugin.reloadPlugin();
-            invocation.source().sendMessage(Component.text("§a[NaturalAuth] ✔ Config berhasil di-reload!"));
-            invocation.source().sendMessage(Component.text("§7Settings aktif: session-expiry, auto-login, bcrypt-rounds, website-url, server names."));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§a[NaturalAuth] ✔ Config berhasil di-reload!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§7Settings aktif: session-expiry, auto-login, bcrypt-rounds, website-url, server names."));
         } catch (Exception e) {
-            invocation.source().sendMessage(Component.text("§c[NaturalAuth] ✖ Reload gagal: §f" + e.getMessage()));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§c[NaturalAuth] ✖ Reload gagal: §f" + e.getMessage()));
             plugin.getLogger().error("Reload config failed!", e);
         }
     }
 
     private void handleForceLogin(Invocation invocation, String[] args) {
         if (args.length < 3) {
-            invocation.source().sendMessage(Component.text("§cGunakan: /na admin forcelogin <player>"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cGunakan: /na admin forcelogin <player>"));
             return;
         }
         String targetName = args[2];
         Optional<Player> target = plugin.getServer().getPlayer(targetName);
         if (target.isEmpty()) {
-            invocation.source().sendMessage(Component.text("§cPlayer " + targetName + " tidak sedang online!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cPlayer " + targetName + " tidak sedang online!"));
             return;
         }
 
         Player player = target.get();
         if (plugin.isAuthenticated(player.getUniqueId())) {
-            invocation.source().sendMessage(Component.text("§cPlayer " + targetName + " sudah dalam keadaan login!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cPlayer " + targetName + " sudah dalam keadaan login!"));
             return;
         }
 
         if (plugin.getVelocityListener() != null) {
             plugin.getVelocityListener().finalizeAuth(player);
             plugin.logActivity(player.getUniqueId(), player.getUsername(), "ADMIN_FORCELOGIN", "127.0.0.1", "Dipaksa login oleh Admin");
-            invocation.source().sendMessage(Component.text("§aBerhasil memaksa login player " + player.getUsername()));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§aBerhasil memaksa login player " + player.getUsername()));
         } else {
-            invocation.source().sendMessage(Component.text("§cInternal listener error."));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cInternal listener error."));
         }
     }
 
     private void handleForceRegister(Invocation invocation, String[] args) {
         if (args.length < 5) {
-            invocation.source().sendMessage(Component.text("§cGunakan: /na admin forceregister <player> <password> <password>"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cGunakan: /na admin forceregister <player> <password> <password>"));
             return;
         }
         String targetName = args[2];
@@ -144,12 +146,12 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
         String pass2 = args[4];
 
         if (!pass1.equals(pass2)) {
-            invocation.source().sendMessage(Component.text("§cKonfirmasi password tidak cocok!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cKonfirmasi password tidak cocok!"));
             return;
         }
 
         if (plugin.getDatabaseManager().isRegistered(targetName)) {
-            invocation.source().sendMessage(Component.text("§cPlayer " + targetName + " sudah terdaftar di database!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cPlayer " + targetName + " sudah terdaftar di database!"));
             return;
         }
 
@@ -157,22 +159,22 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
         boolean success = plugin.register(uuid, targetName, pass1);
         if (success) {
             plugin.logActivity(uuid, targetName, "ADMIN_FORCEREGISTER", "127.0.0.1", "Didaftarkan secara manual oleh Admin");
-            invocation.source().sendMessage(Component.text("§aBerhasil mendaftarkan player " + targetName + " dengan password baru."));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§aBerhasil mendaftarkan player " + targetName + " dengan password baru."));
         } else {
-            invocation.source().sendMessage(Component.text("§cGagal mendaftarkan player!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cGagal mendaftarkan player!"));
         }
     }
 
     private void handleChangePassword(Invocation invocation, String[] args) {
         if (args.length < 4) {
-            invocation.source().sendMessage(Component.text("§cGunakan: /na admin changepassword <player> <newPassword>"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cGunakan: /na admin changepassword <player> <newPassword>"));
             return;
         }
         String targetName = args[2];
         String newPass = args[3];
 
         if (!plugin.getDatabaseManager().isRegistered(targetName)) {
-            invocation.source().sendMessage(Component.text("§cPlayer " + targetName + " belum terdaftar!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cPlayer " + targetName + " belum terdaftar!"));
             return;
         }
 
@@ -186,25 +188,25 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
                 return info != null ? UUID.fromString(info.get("uuid")) : UUID.randomUUID();
             });
             plugin.logActivity(uuid, targetName, "ADMIN_CHANGEPASSWORD", "127.0.0.1", "Password diubah secara manual oleh Admin");
-            invocation.source().sendMessage(Component.text("§aBerhasil mengganti password untuk player " + targetName));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§aBerhasil mengganti password untuk player " + targetName));
             plugin.getServer().getPlayer(targetName).ifPresent(p -> {
-                p.sendMessage(Component.text("§ePassword Anda telah diubah oleh Admin. Silakan gunakan password baru Anda."));
+                p.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§ePassword Anda telah diubah oleh Admin. Silakan gunakan password baru Anda."));
             });
         } else {
-            invocation.source().sendMessage(Component.text("§cGagal mengganti password!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cGagal mengganti password!"));
         }
     }
 
     private void handleChangeEmail(Invocation invocation, String[] args) {
         if (args.length < 4) {
-            invocation.source().sendMessage(Component.text("§cGunakan: /na admin changeemail <player> <newEmail>"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cGunakan: /na admin changeemail <player> <newEmail>"));
             return;
         }
         String targetName = args[2];
         String newEmail = args[3];
 
         if (!plugin.getDatabaseManager().isRegistered(targetName)) {
-            invocation.source().sendMessage(Component.text("§cPlayer " + targetName + " belum terdaftar!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cPlayer " + targetName + " belum terdaftar!"));
             return;
         }
 
@@ -215,21 +217,21 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
                 return info != null ? UUID.fromString(info.get("uuid")) : UUID.randomUUID();
             });
             plugin.logActivity(uuid, targetName, "ADMIN_CHANGEEMAIL", "127.0.0.1", "Email diubah menjadi " + newEmail + " oleh Admin");
-            invocation.source().sendMessage(Component.text("§aBerhasil mengubah email player " + targetName + " menjadi " + newEmail));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§aBerhasil mengubah email player " + targetName + " menjadi " + newEmail));
         } else {
-            invocation.source().sendMessage(Component.text("§cGagal mengubah email!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cGagal mengubah email!"));
         }
     }
 
     private void handleUnregister(Invocation invocation, String[] args) {
         if (args.length < 3) {
-            invocation.source().sendMessage(Component.text("§cGunakan: /na admin unregister <player>"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cGunakan: /na admin unregister <player>"));
             return;
         }
         String targetName = args[2];
 
         if (!plugin.getDatabaseManager().isRegistered(targetName)) {
-            invocation.source().sendMessage(Component.text("§cPlayer " + targetName + " belum terdaftar!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cPlayer " + targetName + " belum terdaftar!"));
             return;
         }
 
@@ -240,20 +242,20 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
                 return info != null ? UUID.fromString(info.get("uuid")) : UUID.randomUUID();
             });
             plugin.logActivity(uuid, targetName, "ADMIN_UNREGISTER", "127.0.0.1", "Registrasi dihapus oleh Admin");
-            invocation.source().sendMessage(Component.text("§aBerhasil menghapus pendaftaran player " + targetName));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§aBerhasil menghapus pendaftaran player " + targetName));
             plugin.getServer().getPlayer(targetName).ifPresent(p -> {
                 plugin.getSessionManager().removeSession(p.getUniqueId());
                 plugin.setAuthenticated(p.getUniqueId(), false);
-                p.disconnect(Component.text("§cAkun Anda telah di-unregister oleh Admin!"));
+                p.disconnect(LegacyComponentSerializer.legacySection().deserialize("§cAkun Anda telah di-unregister oleh Admin!"));
             });
         } else {
-            invocation.source().sendMessage(Component.text("§cGagal meng-unregister player!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cGagal meng-unregister player!"));
         }
     }
 
     private void handleKick(Invocation invocation, String[] args) {
         if (args.length < 3) {
-            invocation.source().sendMessage(Component.text("§cGunakan: /na admin kick <player/all/*/**>"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cGunakan: /na admin kick <player/all/*/**>"));
             return;
         }
         String target = args[2];
@@ -261,53 +263,53 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
         if (target.equalsIgnoreCase("all") || target.equals("*") || target.equals("**")) {
             int count = 0;
             for (Player p : plugin.getServer().getAllPlayers()) {
-                p.disconnect(Component.text("§cDi-kick secara massal oleh Admin!"));
+                p.disconnect(LegacyComponentSerializer.legacySection().deserialize("§cDi-kick secara massal oleh Admin!"));
                 count++;
             }
-            invocation.source().sendMessage(Component.text("§aBerhasil meng-kick " + count + " player massal!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§aBerhasil meng-kick " + count + " player massal!"));
         } else {
             Optional<Player> targetPlayer = plugin.getServer().getPlayer(target);
             if (targetPlayer.isPresent()) {
-                targetPlayer.get().disconnect(Component.text("§cAnda di-kick oleh Admin!"));
-                invocation.source().sendMessage(Component.text("§aBerhasil meng-kick player " + target));
+                targetPlayer.get().disconnect(LegacyComponentSerializer.legacySection().deserialize("§cAnda di-kick oleh Admin!"));
+                invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§aBerhasil meng-kick player " + target));
             } else {
-                invocation.source().sendMessage(Component.text("§cPlayer " + target + " tidak ditemukan online!"));
+                invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cPlayer " + target + " tidak ditemukan online!"));
             }
         }
     }
 
     private void handleGetOtp(Invocation invocation, String[] args) {
         if (args.length < 3) {
-            invocation.source().sendMessage(Component.text("§cGunakan: /na admin getotp <email>"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cGunakan: /na admin getotp <email>"));
             return;
         }
         String email = args[2];
         String otp = plugin.getDatabaseManager().getOTP(email);
         if (otp != null) {
-            invocation.source().sendMessage(Component.text("§aOTP Aktif untuk email §e" + email + " §aadalah: §b§l" + otp));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§aOTP Aktif untuk email §e" + email + " §aadalah: §b§l" + otp));
         } else {
-            invocation.source().sendMessage(Component.text("§cTidak ada OTP aktif atau kedaluwarsa untuk email: " + email));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cTidak ada OTP aktif atau kedaluwarsa untuk email: " + email));
         }
     }
 
     private void handleResendOtp(Invocation invocation, String[] args) {
         if (args.length < 3) {
-            invocation.source().sendMessage(Component.text("§cGunakan: /na admin resendotp <email>"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cGunakan: /na admin resendotp <email>"));
             return;
         }
         String email = args[2];
         String otp = plugin.getDatabaseManager().getOTP(email);
         if (otp == null) {
-            invocation.source().sendMessage(Component.text("§cTidak ada OTP aktif untuk email " + email + ". Buat baru dengan /email!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cTidak ada OTP aktif untuk email " + email + ". Buat baru dengan /email!"));
             return;
         }
 
-        invocation.source().sendMessage(Component.text("§aMengirimkan ulang OTP ke email: " + email + "..."));
+        invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§aMengirimkan ulang OTP ke email: " + email + "..."));
         plugin.sendOtpEmail("Player", email, otp).thenAccept(success -> {
             if (success) {
-                invocation.source().sendMessage(Component.text("§aResend OTP sukses!"));
+                invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§aResend OTP sukses!"));
             } else {
-                invocation.source().sendMessage(Component.text("§cResend OTP gagal!"));
+                invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cResend OTP gagal!"));
             }
         });
     }
@@ -316,42 +318,42 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
         if (!(invocation.source() instanceof Player adminPlayer)) {
             // Executed by Console (Terminal)
             if (args.length < 3) {
-                invocation.source().sendMessage(Component.text("§cGunakan: /na admin whois <player>"));
+                invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cGunakan: /na admin whois <player>"));
                 return;
             }
             String targetUsername = args[2];
             java.util.Map<String, String> info = plugin.getDatabaseManager().getUserInfo(targetUsername);
             
-            invocation.source().sendMessage(Component.text("§8§l========================================="));
-            invocation.source().sendMessage(Component.text("§b§l⚡ NaturalAuth Console Whois: §f§l" + targetUsername + " ⚡"));
-            invocation.source().sendMessage(Component.text("§8§l========================================="));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§8§l========================================="));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§b§l⚡ NaturalAuth Console Whois: §f§l" + targetUsername + " ⚡"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§8§l========================================="));
             
             Optional<Player> onlineTarget = plugin.getServer().getPlayer(targetUsername);
             if (onlineTarget.isPresent()) {
                 Player p = onlineTarget.get();
-                invocation.source().sendMessage(Component.text("§7• §bStatus: §a§lONLINE"));
-                invocation.source().sendMessage(Component.text("§7• §bServer: §f" + p.getCurrentServer().map(c -> c.getServerInfo().getName()).orElse("Unknown")));
-                invocation.source().sendMessage(Component.text("§7• §bIP Address: §f" + p.getRemoteAddress().getAddress().getHostAddress()));
-                invocation.source().sendMessage(Component.text("§7• §bPing: §f" + p.getPing() + " ms"));
+                invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§7• §bStatus: §a§lONLINE"));
+                invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§7• §bServer: §f" + p.getCurrentServer().map(c -> c.getServerInfo().getName()).orElse("Unknown")));
+                invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§7• §bIP Address: §f" + p.getRemoteAddress().getAddress().getHostAddress()));
+                invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§7• §bPing: §f" + p.getPing() + " ms"));
             } else {
-                invocation.source().sendMessage(Component.text("§7• §bStatus: §c§lOFFLINE"));
+                invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§7• §bStatus: §c§lOFFLINE"));
             }
             
             if (info != null) {
-                invocation.source().sendMessage(Component.text("§7• §bUUID: §f" + info.get("uuid")));
-                invocation.source().sendMessage(Component.text("§7• §bPremium Account: §f" + ("1".equals(info.get("premium")) ? "§aYes" : "§cNo")));
-                invocation.source().sendMessage(Component.text("§7• §bEmail Terkait: §f" + (info.get("email") != null ? info.get("email") : "§7(belum dikaitkan)")));
-                invocation.source().sendMessage(Component.text("§7• §bNo. Telepon: §f" + (info.get("phone_number") != null ? info.get("phone_number") : "§7N/A")));
-                invocation.source().sendMessage(Component.text("§7• §bTanggal Daftar: §f" + info.get("created_at")));
+                invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§7• §bUUID: §f" + info.get("uuid")));
+                invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§7• §bPremium Account: §f" + ("1".equals(info.get("premium")) ? "§aYes" : "§cNo")));
+                invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§7• §bEmail Terkait: §f" + (info.get("email") != null ? info.get("email") : "§7(belum dikaitkan)")));
+                invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§7• §bNo. Telepon: §f" + (info.get("phone_number") != null ? info.get("phone_number") : "§7N/A")));
+                invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§7• §bTanggal Daftar: §f" + info.get("created_at")));
             } else {
-                invocation.source().sendMessage(Component.text("§cUser '" + targetUsername + "' tidak ditemukan di database!"));
+                invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cUser '" + targetUsername + "' tidak ditemukan di database!"));
             }
-            invocation.source().sendMessage(Component.text("§8§l========================================="));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§8§l========================================="));
             return;
         }
 
         if (args.length < 3) {
-            adminPlayer.sendMessage(Component.text("§cGunakan: /na admin whois <player>"));
+            adminPlayer.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cGunakan: /na admin whois <player>"));
             return;
         }
 
@@ -368,7 +370,7 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
             adminPlayer.getCurrentServer().ifPresent(serverConnection -> {
                 serverConnection.sendPluginMessage(NaturalAuthVelocity.BRIDGE_CHANNEL, baos.toByteArray());
             });
-            adminPlayer.sendMessage(Component.text("§aMengajukan data Whois untuk " + targetUsername + " ke Paper..."));
+            adminPlayer.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§aMengajukan data Whois untuk " + targetUsername + " ke Paper..."));
 
         } catch (IOException e) {
             plugin.getLogger().error("Failed to construct PACKET_WHOIS_REQUEST", e);
@@ -377,13 +379,13 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
 
     private void handleSetPremium(Invocation invocation, String[] args) {
         if (args.length < 3) {
-            invocation.source().sendMessage(Component.text("§cGunakan: /na admin setpremium <player>"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cGunakan: /na admin setpremium <player>"));
             return;
         }
         String targetName = args[2];
 
         if (!plugin.getDatabaseManager().isRegistered(targetName)) {
-            invocation.source().sendMessage(Component.text("§cPlayer " + targetName + " belum terdaftar!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cPlayer " + targetName + " belum terdaftar!"));
             return;
         }
 
@@ -399,7 +401,7 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
         }
 
         if (uuid == null) {
-            invocation.source().sendMessage(Component.text("§cUUID player tidak ditemukan!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cUUID player tidak ditemukan!"));
             return;
         }
 
@@ -407,22 +409,22 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
         plugin.getDatabaseManager().updatePassword(uuid, ""); // Clear password hash
         plugin.logActivity(uuid, targetName, "ADMIN_SETPREMIUM", "127.0.0.1", "Diubah menjadi Premium oleh Admin");
 
-        invocation.source().sendMessage(Component.text("§aSukses menyetel status player " + targetName + " sebagai PREMIUM (Password terhapus)."));
+        invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§aSukses menyetel status player " + targetName + " sebagai PREMIUM (Password terhapus)."));
 
         targetPlayer.ifPresent(p -> {
-            p.disconnect(Component.text("§aStatus akun Anda diubah menjadi PREMIUM oleh Admin.\n§7Silakan gabung kembali menggunakan Minecraft Original secara otomatis!"));
+            p.disconnect(LegacyComponentSerializer.legacySection().deserialize("§aStatus akun Anda diubah menjadi PREMIUM oleh Admin.\n§7Silakan gabung kembali menggunakan Minecraft Original secara otomatis!"));
         });
     }
 
     private void handleSetCracked(Invocation invocation, String[] args) {
         if (args.length < 3) {
-            invocation.source().sendMessage(Component.text("§cGunakan: /na admin setcracked <player>"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cGunakan: /na admin setcracked <player>"));
             return;
         }
         String targetName = args[2];
 
         if (!plugin.getDatabaseManager().isRegistered(targetName)) {
-            invocation.source().sendMessage(Component.text("§cPlayer " + targetName + " belum terdaftar!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cPlayer " + targetName + " belum terdaftar!"));
             return;
         }
 
@@ -437,20 +439,20 @@ public class NaturalAuthAdminCommand implements SimpleCommand {
         }
 
         if (uuid == null) {
-            invocation.source().sendMessage(Component.text("§cUUID player tidak ditemukan!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cUUID player tidak ditemukan!"));
             return;
         }
 
         plugin.getDatabaseManager().setPremium(uuid, false);
         plugin.logActivity(uuid, targetName, "ADMIN_SETCRACKED", "127.0.0.1", "Diubah menjadi Cracked (Registrasi dihapus) oleh Admin");
 
-        invocation.source().sendMessage(Component.text("§eSukses menyetel status player " + targetName + " sebagai CRACKED. Player dipaksa registrasi ulang."));
+        invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§eSukses menyetel status player " + targetName + " sebagai CRACKED. Player dipaksa registrasi ulang."));
 
         // Delete from database completely so they have to re-register on next login!
         plugin.getDatabaseManager().unregisterUser(targetName);
 
         targetPlayer.ifPresent(p -> {
-            p.disconnect(Component.text("§eStatus akun Anda diubah menjadi CRACKED oleh Admin.\n§7Silakan gabung kembali dan daftarkan password baru Anda!"));
+            p.disconnect(LegacyComponentSerializer.legacySection().deserialize("§eStatus akun Anda diubah menjadi CRACKED oleh Admin.\n§7Silakan gabung kembali dan daftarkan password baru Anda!"));
         });
     }
 

@@ -1,5 +1,7 @@
 package id.naturalsmp.naturalauth.velocity.command;
 
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+
 import com.velocitypowered.api.command.SimpleCommand;
 import com.velocitypowered.api.proxy.Player;
 import id.naturalsmp.naturalauth.velocity.NaturalAuthVelocity;
@@ -16,13 +18,13 @@ public class LogoutCommand implements SimpleCommand {
     @Override
     public void execute(Invocation invocation) {
         if (!(invocation.source() instanceof Player player)) {
-            invocation.source().sendMessage(Component.text("§cCommand ini hanya dapat digunakan oleh player!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cCommand ini hanya dapat digunakan oleh player!"));
             return;
         }
 
         // Check if player is authenticated
         if (!plugin.isAuthenticated(player.getUniqueId())) {
-            player.sendMessage(Component.text("§cAnda belum login!"));
+            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cAnda belum login!"));
             return;
         }
 

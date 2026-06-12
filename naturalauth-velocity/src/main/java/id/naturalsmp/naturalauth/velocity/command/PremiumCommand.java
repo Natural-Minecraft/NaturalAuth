@@ -1,5 +1,7 @@
 package id.naturalsmp.naturalauth.velocity.command;
 
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+
 import com.velocitypowered.api.command.SimpleCommand;
 import com.velocitypowered.api.proxy.Player;
 import id.naturalsmp.naturalauth.common.AuthBridgeProtocol;
@@ -22,7 +24,7 @@ public class PremiumCommand implements SimpleCommand {
     @Override
     public void execute(Invocation invocation) {
         if (!(invocation.source() instanceof Player player)) {
-            invocation.source().sendMessage(Component.text("§cCommand ini hanya dapat digunakan oleh player!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cCommand ini hanya dapat digunakan oleh player!"));
             return;
         }
 

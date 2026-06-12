@@ -1,5 +1,7 @@
 package id.naturalsmp.naturalauth.velocity.command;
 
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+
 import com.velocitypowered.api.command.SimpleCommand;
 import com.velocitypowered.api.proxy.Player;
 import id.naturalsmp.naturalauth.velocity.NaturalAuthVelocity;
@@ -18,12 +20,12 @@ public class LoginCommand implements SimpleCommand {
     @Override
     public void execute(Invocation invocation) {
         if (!(invocation.source() instanceof Player player)) {
-            invocation.source().sendMessage(Component.text("§cCommand ini hanya dapat digunakan oleh player!"));
+            invocation.source().sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cCommand ini hanya dapat digunakan oleh player!"));
             return;
         }
 
         if (plugin.isAuthenticated(player.getUniqueId())) {
-            player.sendMessage(Component.text("§a§lNaturalAuth §r§eAnda sudah login! Menyinkronkan status login ke server..."));
+            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§a§lNaturalAuth §r§eAnda sudah login! Menyinkronkan status login ke server..."));
             if (plugin.getVelocityListener() != null) {
                 plugin.getVelocityListener().finalizeAuth(player);
             }
@@ -38,13 +40,13 @@ public class LoginCommand implements SimpleCommand {
             CompletableFuture.supplyAsync(() -> plugin.getDatabaseManager().isRegistered(player.getUsername()))
                 .thenAcceptAsync(registered -> {
                     if (!registered) {
-                        player.sendMessage(Component.text("§cAkun Anda belum terdaftar! Gunakan §e/register <password> <password>§c untuk mendaftar."));
+                        player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cAkun Anda belum terdaftar! Gunakan §e/register <password> <password>§c untuk mendaftar."));
                         return;
                     }
                     if (plugin.getVelocityListener() != null) {
                         plugin.getVelocityListener().startAuthFlow(player);
                     } else {
-                        player.sendMessage(Component.text("§cGunakan: §e/login <password>"));
+                        player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cGunakan: §e/login <password>"));
                     }
                 });
             return;
@@ -56,7 +58,7 @@ public class LoginCommand implements SimpleCommand {
         CompletableFuture.supplyAsync(() -> plugin.getDatabaseManager().isRegistered(player.getUsername()))
             .thenAcceptAsync(registered -> {
                 if (!registered) {
-                    player.sendMessage(Component.text("§cAkun Anda belum terdaftar! Gunakan §e/register <password> <password>§c untuk mendaftar."));
+                    player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cAkun Anda belum terdaftar! Gunakan §e/register <password> <password>§c untuk mendaftar."));
                     return;
                 }
 
@@ -68,9 +70,9 @@ public class LoginCommand implements SimpleCommand {
                         .thenAcceptAsync(correct -> {
                             if (correct) {
                                 plugin.setAuthenticated(player.getUniqueId(), true);
-                                player.sendMessage(Component.text("§aLogin berhasil!"));
+                                player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§aLogin berhasil!"));
                             } else {
-                                player.sendMessage(Component.text("§cPassword salah!"));
+                                player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cPassword salah!"));
                             }
                         });
                 }

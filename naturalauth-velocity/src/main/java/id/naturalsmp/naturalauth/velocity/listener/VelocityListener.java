@@ -1,5 +1,7 @@
 package id.naturalsmp.naturalauth.velocity.listener;
 
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.EventTask;
 import com.velocitypowered.api.event.command.CommandExecuteEvent;
@@ -158,7 +160,7 @@ public class VelocityListener {
                 pendingAutoRulesPlayers.add(uuid);
             } else {
                 pendingAutoLoginPlayers.add(uuid);
-                player.sendMessage(Component.text("§a§l[!] §r§aLogin premium otomatis berhasil!"));
+                player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§a§l[!] §r§aLogin premium otomatis berhasil!"));
             }
             return;
         }
@@ -186,7 +188,7 @@ public class VelocityListener {
                 pendingAutoRulesPlayers.add(uuid);
             } else {
                 pendingAutoLoginPlayers.add(uuid);
-                player.sendMessage(Component.text("§a§l[!] §r§aAutentikasi Bedrock berhasil (Bypass password)!"));
+                player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§a§l[!] §r§aAutentikasi Bedrock berhasil (Bypass password)!"));
             }
             return;
         }
@@ -208,7 +210,7 @@ public class VelocityListener {
                 plugin.getJoinTimes().put(uuid, System.currentTimeMillis());
                 // Mark as pending auto-login — Paper PLAYER_READY will trigger finalizeAuth directly
                 pendingAutoLoginPlayers.add(uuid);
-                player.sendMessage(Component.text("§aAuto-login berhasil (Sesi aktif). Menghubungkan ke server..."));
+                player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§aAuto-login berhasil (Sesi aktif). Menghubungkan ke server..."));
             }
         } else {
             plugin.setAuthenticated(uuid, false);
@@ -240,7 +242,7 @@ public class VelocityListener {
                 event.setResult(ServerPreConnectEvent.ServerResult.allowed(lobby));
             } else {
                 plugin.getLogger().error("Lobby server '" + lobbyName + "' not found! Please check configuration.");
-                player.disconnect(Component.text("§cServer Lobby tidak tersedia. Silakan hubungi admin."));
+                player.disconnect(LegacyComponentSerializer.legacySection().deserialize("§cServer Lobby tidak tersedia. Silakan hubungi admin."));
             }
         }
     }
@@ -253,14 +255,14 @@ public class VelocityListener {
             String lobbyName = plugin.getConfig().getTable("servers").getString("lobby", "lobby");
             if (event.getServer().getServerInfo().getName().equalsIgnoreCase(lobbyName)) {
                 // Lobby/Limbo is dead/offline! Disconnect the player to prevent infinite redirect loop
-                player.disconnect(Component.text("§cServer Lobby/Limbo tidak tersedia atau koneksi terputus. Silakan hubungi admin."));
+                player.disconnect(LegacyComponentSerializer.legacySection().deserialize("§cServer Lobby/Limbo tidak tersedia atau koneksi terputus. Silakan hubungi admin."));
                 return;
             }
             RegisteredServer lobby = plugin.getServer().getServer(lobbyName).orElse(null);
             if (lobby != null) {
                 // Prevent disconnect by redirecting silently to Lobby (Limbo Waiting Room)
                 event.setResult(KickedFromServerEvent.RedirectPlayer.create(lobby));
-                player.sendMessage(Component.text("§c§l[!] §r§cKoneksi ke server utama terputus. Mengalihkan Anda ke ruang tunggu (Limbo)..."));
+                player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§c§l[!] §r§cKoneksi ke server utama terputus. Mengalihkan Anda ke ruang tunggu (Limbo)..."));
             }
         }
     }
@@ -317,9 +319,9 @@ public class VelocityListener {
         if (!plugin.isAuthenticated(player.getUniqueId())) {
             event.setResult(PlayerChatEvent.ChatResult.denied());
             if (plugin.isPendingRules(player.getUniqueId())) {
-                player.sendMessage(Component.text("§cAnda harus menyetujui peraturan server terlebih dahulu!"));
+                player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cAnda harus menyetujui peraturan server terlebih dahulu!"));
             } else {
-                player.sendMessage(Component.text("§cAnda harus login terlebih dahulu!"));
+                player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cAnda harus login terlebih dahulu!"));
             }
         }
     }
@@ -340,9 +342,9 @@ public class VelocityListener {
                 
                 event.setResult(CommandExecuteEvent.CommandResult.denied());
                 if (plugin.isPendingRules(player.getUniqueId())) {
-                    player.sendMessage(Component.text("§cAnda harus menyetujui peraturan server terlebih dahulu!"));
+                    player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cAnda harus menyetujui peraturan server terlebih dahulu!"));
                 } else {
-                    player.sendMessage(Component.text("§cAnda harus login terlebih dahulu!"));
+                    player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cAnda harus login terlebih dahulu!"));
                 }
             }
         }
@@ -416,7 +418,7 @@ public class VelocityListener {
                     if (plugin.isPendingRules(uuid)) {
                         plugin.getDatabaseManager().setRulesAccepted(uuid);
                         plugin.logActivity(uuid, player.getUsername(), "RULES_ACCEPTED", player.getRemoteAddress().getAddress().getHostAddress(), "Menyetujui peraturan server");
-                        player.sendMessage(Component.text("§aAnda telah menyetujui peraturan server!"));
+                        player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§aAnda telah menyetujui peraturan server!"));
                         finalizeAuth(player);
                     }
                 });
@@ -426,7 +428,7 @@ public class VelocityListener {
                     if (plugin.isPendingRules(uuid)) {
                         plugin.setPendingRules(uuid, false);
                         plugin.logActivity(uuid, player.getUsername(), "RULES_DECLINED", player.getRemoteAddress().getAddress().getHostAddress(), "Menolak peraturan server");
-                        player.disconnect(Component.text("§cAnda harus menyetujui peraturan untuk bermain!"));
+                        player.disconnect(LegacyComponentSerializer.legacySection().deserialize("§cAnda harus menyetujui peraturan untuk bermain!"));
                     }
                 });
             } else if (packetId == AuthBridgeProtocol.PACKET_SUBMIT_EMAIL) {
@@ -548,7 +550,7 @@ public class VelocityListener {
                     plugin.getDatabaseManager().setLanguage(uuid, lang);
 
                     plugin.logActivity(uuid, player.getUsername(), "REGISTER", player.getRemoteAddress().getAddress().getHostAddress(), "Registrasi GUI berhasil");
-                    player.sendMessage(Component.text(isEnglish ? "§a§lNaturalAuth §r§aRegistration successful!" : "§a§lNaturalAuth §r§aRegistrasi berhasil!"));
+                    player.sendMessage(LegacyComponentSerializer.legacySection().deserialize(isEnglish ? "§a§lNaturalAuth §r§aRegistration successful!" : "§a§lNaturalAuth §r§aRegistrasi berhasil!"));
                     
                     // Open Email Link Prompt
                     plugin.getServer().getScheduler().buildTask(plugin, () -> {
@@ -583,7 +585,7 @@ public class VelocityListener {
                     loginAttempts.remove(uuid);
                     loginCooldowns.remove(uuid);
                     plugin.logActivity(uuid, player.getUsername(), "LOGIN", player.getRemoteAddress().getAddress().getHostAddress(), "Login GUI berhasil");
-                    player.sendMessage(Component.text(isEnglish ? "§aLogin successful!" : "§aLogin berhasil!"));
+                    player.sendMessage(LegacyComponentSerializer.legacySection().deserialize(isEnglish ? "§aLogin successful!" : "§aLogin berhasil!"));
                     handlePasswordVerified(player);
                 } else {
                     int attempts = loginAttempts.merge(uuid, 1, Integer::sum);
@@ -633,7 +635,7 @@ public class VelocityListener {
                 loginAttempts.remove(uuid);
                 loginCooldowns.remove(uuid);
                 plugin.logActivity(uuid, player.getUsername(), "LOGIN", player.getRemoteAddress().getAddress().getHostAddress(), "Login Command berhasil");
-                player.sendMessage(Component.text("§a§lNaturalAuth §r§aLogin berhasil!"));
+                player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§a§lNaturalAuth §r§aLogin berhasil!"));
                 handlePasswordVerified(player);
             } else {
                 int attempts = loginAttempts.merge(uuid, 1, Integer::sum);
@@ -707,7 +709,7 @@ public class VelocityListener {
                 },
                 () -> {
                     plugin.getLogger().error("Target server '" + destinationName + "' not found in Velocity config! Player " + player.getUsername() + " will remain in lobby.");
-                    player.sendMessage(Component.text("§c§l[!] §r§cServer tujuan tidak ditemukan. Silakan hubungi admin."));
+                    player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§c§l[!] §r§cServer tujuan tidak ditemukan. Silakan hubungi admin."));
                 }
         );
     }
@@ -802,18 +804,18 @@ public class VelocityListener {
             plugin.getDatabaseManager().saveOTP(uuid, email, otpCode);
             plugin.logActivity(uuid, player.getUsername(), "OTP_REQUESTED", player.getRemoteAddress().getAddress().getHostAddress(), "Mengajukan penautan email ke: " + email);
             
-            player.sendMessage(Component.text("§a§lNaturalAuth §r§aMengirimkan kode OTP ke email Anda..."));
+            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§a§lNaturalAuth §r§aMengirimkan kode OTP ke email Anda..."));
             plugin.sendOtpEmail(player.getUsername(), email, otpCode).thenAccept(success -> {
                 if (success) {
-                    player.sendMessage(Component.text("§aOTP telah dikirim! Cek inbox atau folder spam email Anda."));
+                    player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§aOTP telah dikirim! Cek inbox atau folder spam email Anda."));
                     sendOpenOtpToPaper(player);
                 } else {
-                    player.sendMessage(Component.text("§cGagal mengirim email OTP. Silakan hubungi admin atau kaitkan nanti."));
+                    player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cGagal mengirim email OTP. Silakan hubungi admin atau kaitkan nanti."));
                     handlePasswordVerified(player);
                 }
             });
         } else {
-            player.sendMessage(Component.text("§e§lNaturalAuth §r§eEmail dilewati. Anda bisa mengaitkannya nanti jika perlu."));
+            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e§lNaturalAuth §r§eEmail dilewati. Anda bisa mengaitkannya nanti jika perlu."));
             handlePasswordVerified(player);
         }
     }
@@ -864,7 +866,7 @@ public class VelocityListener {
         if (activeOtp.equals(typedOtp.trim())) {
             plugin.getDatabaseManager().deleteOTP(uuid);
             plugin.logActivity(uuid, player.getUsername(), "OTP_VERIFIED", player.getRemoteAddress().getAddress().getHostAddress(), "Email berhasil ditautkan: " + email);
-            player.sendMessage(Component.text("§a§lNaturalAuth §r§aVerifikasi OTP berhasil! Email Anda telah ditautkan."));
+            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§a§lNaturalAuth §r§aVerifikasi OTP berhasil! Email Anda telah ditautkan."));
             handlePasswordVerified(player);
         } else {
             plugin.logActivity(uuid, player.getUsername(), "OTP_FAILED", player.getRemoteAddress().getAddress().getHostAddress(), "Input OTP salah untuk email: " + email);

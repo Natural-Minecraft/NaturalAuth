@@ -1,5 +1,7 @@
 package id.naturalsmp.naturalauth.velocity;
 
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+
 import com.velocitypowered.api.proxy.Player;
 import id.naturalsmp.naturalauth.velocity.listener.VelocityListener;
 import net.kyori.adventure.text.Component;
@@ -32,7 +34,7 @@ public class BedrockFormHelper implements BedrockAuthProvider {
                     .validResultHandler(response -> {
                         boolean quit = response.getToggle(2);
                         if (quit) {
-                            player.disconnect(Component.text("§cAnda memilih untuk keluar (Quit)."));
+                            player.disconnect(LegacyComponentSerializer.legacySection().deserialize("§cAnda memilih untuk keluar (Quit)."));
                             return;
                         }
 
@@ -56,7 +58,7 @@ public class BedrockFormHelper implements BedrockAuthProvider {
                         
                         boolean success = plugin.register(uuid, player.getUsername(), password);
                         if (success) {
-                            player.sendMessage(Component.text("§aRegistrasi berhasil!"));
+                            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§aRegistrasi berhasil!"));
                             listener.handlePasswordVerified(player);
                         } else {
                             openBedrockErrorForm(player, "Registrasi Gagal", "Registrasi gagal! Silakan coba lagi.", () -> openAuthForm(player, false));
@@ -75,18 +77,18 @@ public class BedrockFormHelper implements BedrockAuthProvider {
                     .validResultHandler(response -> {
                         boolean quit = response.getToggle(2);
                         if (quit) {
-                            player.disconnect(Component.text("§cAnda memilih untuk keluar (Quit)."));
+                            player.disconnect(LegacyComponentSerializer.legacySection().deserialize("§cAnda memilih untuk keluar (Quit)."));
                             return;
                         }
 
                         boolean forgot = response.getToggle(1);
                         if (forgot) {
-                            player.sendMessage(Component.text("§8§m──────────────────────────────────"));
-                            player.sendMessage(Component.text("§e§lNaturalSMP §r§eSilakan klik link di bawah untuk memulihkan password Anda:"));
-                            player.sendMessage(Component.text("§b§nhttps://naturalsmp.net/support/help/lupa-password")
+                            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§8§m──────────────────────────────────"));
+                            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e§lNaturalSMP §r§eSilakan klik link di bawah untuk memulihkan password Anda:"));
+                            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§b§nhttps://naturalsmp.net/support/help/lupa-password")
                                     .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl("https://naturalsmp.net/support/help/lupa-password"))
-                                    .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(Component.text("§7Klik untuk membuka website"))));
-                            player.sendMessage(Component.text("§8§m──────────────────────────────────"));
+                                    .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(LegacyComponentSerializer.legacySection().deserialize("§7Klik untuk membuka website"))));
+                            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§8§m──────────────────────────────────"));
                             
                             reopenAuthFormDelayed(player, true);
                             return;
@@ -99,7 +101,7 @@ public class BedrockFormHelper implements BedrockAuthProvider {
                         }
                         
                         if (plugin.verifyPassword(player.getUsername(), password)) {
-                            player.sendMessage(Component.text("§aLogin berhasil!"));
+                            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§aLogin berhasil!"));
                             listener.handlePasswordVerified(player);
                         } else {
                             openBedrockErrorForm(player, "Login Gagal", "Password salah!", () -> openAuthForm(player, true));
@@ -153,13 +155,13 @@ public class BedrockFormHelper implements BedrockAuthProvider {
                 .validResultHandler(response -> {
                     boolean accepted = response.getToggle(1);
                     if (!accepted) {
-                        player.sendMessage(Component.text("§cAnda harus menyetujui peraturan untuk bermain!"));
+                        player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cAnda harus menyetujui peraturan untuk bermain!"));
                         reopenRulesFormDelayed(player);
                         return;
                     }
                     
                     plugin.getDatabaseManager().setRulesAccepted(uuid);
-                    player.sendMessage(Component.text("§aAnda telah menyetujui peraturan server!"));
+                    player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§aAnda telah menyetujui peraturan server!"));
                     listener.finalizeAuth(player);
                 })
                 .closedResultHandler(() -> reopenRulesFormDelayed(player))
@@ -197,7 +199,7 @@ public class BedrockFormHelper implements BedrockAuthProvider {
                 .validResultHandler(response -> {
                     boolean skip = response.getToggle(1);
                     if (skip) {
-                        player.sendMessage(Component.text("§e§lNaturalAuth §r§eEmail dilewati. Anda bisa mengaitkannya nanti jika perlu."));
+                        player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e§lNaturalAuth §r§eEmail dilewati. Anda bisa mengaitkannya nanti jika perlu."));
                         listener.handlePasswordVerified(player);
                         return;
                     }
@@ -209,11 +211,11 @@ public class BedrockFormHelper implements BedrockAuthProvider {
                     }
 
                     plugin.getDatabaseManager().setEmail(uuid, email);
-                    player.sendMessage(Component.text("§a§lNaturalAuth §r§aEmail berhasil dikaitkan ke akun Anda!"));
+                    player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§a§lNaturalAuth §r§aEmail berhasil dikaitkan ke akun Anda!"));
                     listener.handlePasswordVerified(player);
                 })
                 .closedResultHandler(() -> {
-                    player.sendMessage(Component.text("§e§lNaturalAuth §r§eEmail dilewati. Anda bisa mengaitkannya nanti jika perlu."));
+                    player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e§lNaturalAuth §r§eEmail dilewati. Anda bisa mengaitkannya nanti jika perlu."));
                     listener.handlePasswordVerified(player);
                 })
                 .build();
