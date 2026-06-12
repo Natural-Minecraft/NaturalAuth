@@ -73,6 +73,7 @@ public class DatabaseManager {
                     "premium TINYINT NOT NULL DEFAULT 0, " +
                     "email VARCHAR(255) DEFAULT NULL, " +
                     "phone_number VARCHAR(20) DEFAULT NULL, " +
+                    "language VARCHAR(10) NOT NULL DEFAULT 'indonesia', " +
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                     ")");
 
@@ -156,6 +157,17 @@ public class DatabaseManager {
                         stmt.executeUpdate("ALTER TABLE " + usersTable +
                                 " ADD COLUMN phone_number VARCHAR(20) DEFAULT NULL AFTER email");
                         logger.info("Migration: added phone_number column to " + usersTable);
+                    }
+                }
+            }
+
+            // Check language column; add it if missing
+            try (ResultSet columns = meta.getColumns(null, null, usersTable, "language")) {
+                if (!columns.next()) {
+                    try (Statement stmt = conn.createStatement()) {
+                        stmt.executeUpdate("ALTER TABLE " + usersTable +
+                                " ADD COLUMN language VARCHAR(10) NOT NULL DEFAULT 'indonesia' AFTER phone_number");
+                        logger.info("Migration: added language column to " + usersTable);
                     }
                 }
             }
@@ -409,6 +421,33 @@ public class DatabaseManager {
             ps.executeUpdate();
         } catch (SQLException e) {
             logger.error("Failed to set phone number for UUID: " + uuid, e);
+        }
+    }
+
+    public String getLanguage(UUID uuid) {
+        String query = "SELECT language FROM " + usersTable + " WHERE uuid = ?";
+        try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, uuid.toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String lang = rs.getString("language");
+                    return lang != null ? lang : "indonesia";
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Failed to get language for UUID: " + uuid, e);
+        }
+        return "indonesia";
+    }
+
+    public void setLanguage(UUID uuid, String language) {
+        String query = "UPDATE " + usersTable + " SET language = ? WHERE uuid = ?";
+        try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, language != null ? language.trim().toLowerCase() : "indonesia");
+            ps.setString(2, uuid.toString());
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Failed to set language for UUID: " + uuid, e);
         }
     }
 

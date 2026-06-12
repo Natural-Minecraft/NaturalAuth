@@ -36,6 +36,8 @@ public class VelocityListener {
     private final Set<UUID> pendingAutoLoginPlayers = ConcurrentHashMap.newKeySet();
     // Players that are pending rules but via session (auto-logged in, but rules not accepted)
     private final Set<UUID> pendingAutoRulesPlayers = ConcurrentHashMap.newKeySet();
+    // Tracks player preferred language in-memory (for unregistered players, or until saved to database)
+    private final Map<UUID, String> tempLanguages = new ConcurrentHashMap<>();
 
     // ── Brute Force Protection ───────────────────────────────────────────────
     private final Map<UUID, Integer> loginAttempts = new ConcurrentHashMap<>();
@@ -299,6 +301,7 @@ public class VelocityListener {
         // 3. Remove from session auto-login or auto-rules tracking
         pendingAutoLoginPlayers.remove(uuid);
         pendingAutoRulesPlayers.remove(uuid);
+        tempLanguages.remove(uuid);
         
         // 4. Remove from brute-force attempts and cooldown mappings
         loginAttempts.remove(uuid);
@@ -468,6 +471,19 @@ public class VelocityListener {
 
                     player.disconnect(Component.text(msg));
                 });
+            } else if (packetId == AuthBridgeProtocol.PACKET_SUBMIT_LANGUAGE) {
+                UUID uuid = UUID.fromString(dis.readUTF());
+                String language = dis.readUTF();
+                plugin.getServer().getPlayer(uuid).ifPresent(player -> {
+                    tempLanguages.put(uuid, language);
+                    boolean registered = plugin.getDatabaseManager().isRegistered(player.getUsername());
+                    if (registered) {
+                        plugin.getDatabaseManager().setLanguage(uuid, language);
+                    }
+                    plugin.getLogger().info("[NaturalAuth] Set language for " + player.getUsername() + " to: " + language);
+                    // Reopen the GUI in the new language
+                    startAuthFlow(player);
+                });
             }
 
         } catch (IOException e) {
@@ -479,15 +495,34 @@ public class VelocityListener {
         UUID uuid = player.getUniqueId();
         boolean registered = plugin.getDatabaseManager().isRegistered(player.getUsername());
 
+        // Retrieve language preference
+        String language = tempLanguages.get(uuid);
+        if (language == null) {
+            if (registered) {
+                language = plugin.getDatabaseManager().getLanguage(uuid);
+            } else {
+                language = "indonesia";
+            }
+            tempLanguages.put(uuid, language);
+        }
+
+        boolean isEnglish = "english".equalsIgnoreCase(language);
+
         if (FloodgateHelper.isFloodgatePlayer(uuid)) {
             // Bedrock Flow - Native GUI Form
             if (bedrockAuthProvider != null) {
                 bedrockAuthProvider.openAuthForm(player, registered);
             }
         } else {
-            // Java Flow - Signal Paper companion to open Anvil GUI
-            sendOpenGuiToPaper(player, registered ? "LOGIN" : "REGISTER", 
-                    registered ? "Masukkan Password:" : "Daftar (Password Baru):");
+            // Java Flow - Signal Paper companion to open Dialog GUI
+            String type = registered ? "LOGIN" : "REGISTER";
+            String prompt;
+            if (registered) {
+                prompt = isEnglish ? "Enter Password:" : "Masukkan Password:";
+            } else {
+                prompt = isEnglish ? "Register (New Password):" : "Daftar (Password Baru):";
+            }
+            sendOpenGuiToPaper(player, type, prompt, language);
         }
     }
 
@@ -497,17 +532,23 @@ public class VelocityListener {
             UUID uuid = player.getUniqueId();
             boolean registered = plugin.getDatabaseManager().isRegistered(player.getUsername());
 
+            String lang = tempLanguages.getOrDefault(uuid, "indonesia");
+            boolean isEnglish = "english".equalsIgnoreCase(lang);
+
             if (!registered) {
                 // Registering new account
                 if (password == null || password.length() < 4) {
-                    sendAuthStatusToPaper(player, false, "Password minimal 4 karakter!");
+                    sendAuthStatusToPaper(player, false, isEnglish ? "Password must be at least 4 characters!" : "Password minimal 4 karakter!");
                     return;
                 }
                 
                 boolean success = plugin.register(uuid, player.getUsername(), password);
                 if (success) {
+                    // Save language preference in the database upon successful registration!
+                    plugin.getDatabaseManager().setLanguage(uuid, lang);
+
                     plugin.logActivity(uuid, player.getUsername(), "REGISTER", player.getRemoteAddress().getAddress().getHostAddress(), "Registrasi GUI berhasil");
-                    player.sendMessage(Component.text("§a§lNaturalAuth §r§aRegistrasi berhasil!"));
+                    player.sendMessage(Component.text(isEnglish ? "§a§lNaturalAuth §r§aRegistration successful!" : "§a§lNaturalAuth §r§aRegistrasi berhasil!"));
                     
                     // Open Email Link Prompt
                     plugin.getServer().getScheduler().buildTask(plugin, () -> {
@@ -525,14 +566,16 @@ public class VelocityListener {
                     }).delay(500, TimeUnit.MILLISECONDS).schedule();
                 } else {
                     plugin.logActivity(uuid, player.getUsername(), "REGISTER_FAILED", player.getRemoteAddress().getAddress().getHostAddress(), "Registrasi gagal");
-                    sendAuthStatusToPaper(player, false, "Registrasi gagal, coba lagi!");
+                    sendAuthStatusToPaper(player, false, isEnglish ? "Registration failed, try again!" : "Registrasi gagal, coba lagi!");
                 }
             } else {
                 // Logging in — check cooldown first
                 Long cooldownEnd = loginCooldowns.get(uuid);
                 if (cooldownEnd != null && System.currentTimeMillis() < cooldownEnd) {
                     long remainingSeconds = (cooldownEnd - System.currentTimeMillis()) / 1000 + 1;
-                    sendAuthStatusToPaper(player, false, "Terlalu banyak percobaan! Coba lagi dalam " + remainingSeconds + "s.");
+                    sendAuthStatusToPaper(player, false, isEnglish 
+                            ? "Too many attempts! Try again in " + remainingSeconds + "s."
+                            : "Terlalu banyak percobaan! Coba lagi dalam " + remainingSeconds + "s.");
                     return;
                 }
 
@@ -540,7 +583,7 @@ public class VelocityListener {
                     loginAttempts.remove(uuid);
                     loginCooldowns.remove(uuid);
                     plugin.logActivity(uuid, player.getUsername(), "LOGIN", player.getRemoteAddress().getAddress().getHostAddress(), "Login GUI berhasil");
-                    player.sendMessage(Component.text("§aLogin berhasil!"));
+                    player.sendMessage(Component.text(isEnglish ? "§aLogin successful!" : "§aLogin berhasil!"));
                     handlePasswordVerified(player);
                 } else {
                     int attempts = loginAttempts.merge(uuid, 1, Integer::sum);
@@ -549,14 +592,19 @@ public class VelocityListener {
                         loginAttempts.remove(uuid);
                         loginCooldowns.put(uuid, System.currentTimeMillis() + COOLDOWN_DURATION_MS);
                         plugin.logActivity(uuid, player.getUsername(), "BRUTE_FORCE", player.getRemoteAddress().getAddress().getHostAddress(), "Terlalu banyak percobaan gagal (GUI)");
-                        player.disconnect(Component.text(
-                            "§c§l\uD83D\uDEAB Terlalu Banyak Percobaan!\n" +
-                            "§r§7Anda gagal login sebanyak " + MAX_LOGIN_ATTEMPTS + " kali.\n" +
-                            "§aSilakan coba kembali dalam 60 detik."
+                        player.disconnect(Component.text(isEnglish
+                            ? "§c§l\uD83D\uDEAB Too Many Attempts!\n" +
+                              "§r§7You failed to login " + MAX_LOGIN_ATTEMPTS + " times.\n" +
+                              "§aPlease try again in 60 seconds."
+                            : "§c§l\uD83D\uDEAB Terlalu Banyak Percobaan!\n" +
+                              "§r§7Anda gagal login sebanyak " + MAX_LOGIN_ATTEMPTS + " kali.\n" +
+                              "§aSilakan coba kembali dalam 60 detik."
                         ));
                     } else {
                         plugin.logActivity(uuid, player.getUsername(), "LOGIN_FAILED", player.getRemoteAddress().getAddress().getHostAddress(), "Password GUI salah (" + attempts + "/" + MAX_LOGIN_ATTEMPTS + ")");
-                        sendAuthStatusToPaper(player, false, "Password salah! (" + attempts + "/" + MAX_LOGIN_ATTEMPTS + " percobaan)");
+                        sendAuthStatusToPaper(player, false, isEnglish
+                                ? "Incorrect password! (" + attempts + "/" + MAX_LOGIN_ATTEMPTS + " attempts)"
+                                : "Password salah! (" + attempts + "/" + MAX_LOGIN_ATTEMPTS + " percobaan)");
                     }
                 }
             }
@@ -667,15 +715,16 @@ public class VelocityListener {
 
 
     // Outbound Bridge Messages
-    private void sendOpenGuiToPaper(Player player, String type, String message) {
+    private void sendOpenGuiToPaper(Player player, String type, String message, String language) {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
              DataOutputStream dos = new DataOutputStream(baos)) {
 
-            plugin.getLogger().info("[NaturalAuth-Debug] Sending PACKET_OPEN_GUI to Paper for player: " + player.getUsername() + ", type: " + type);
+            plugin.getLogger().info("[NaturalAuth-Debug] Sending PACKET_OPEN_GUI to Paper for player: " + player.getUsername() + ", type: " + type + ", language: " + language);
             dos.writeByte(AuthBridgeProtocol.PACKET_OPEN_GUI);
             dos.writeUTF(player.getUniqueId().toString());
             dos.writeUTF(type);
             dos.writeUTF(message);
+            dos.writeUTF(language);
 
             sendPluginMessage(player, baos.toByteArray());
         } catch (IOException e) {

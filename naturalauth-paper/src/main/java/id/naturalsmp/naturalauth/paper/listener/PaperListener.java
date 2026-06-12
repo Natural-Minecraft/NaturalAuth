@@ -47,6 +47,7 @@ public class PaperListener implements Listener, PluginMessageListener {
     // Tracks active GUI type and prompt for unauthenticated players to handle esc-reopens properly
     private final Map<UUID, String> activeGuiType = new ConcurrentHashMap<>();
     private final Map<UUID, String> activePrompt  = new ConcurrentHashMap<>();
+    private final Map<UUID, String> playerLanguages = new ConcurrentHashMap<>();
 
     // Track admins who have a read-only Whois chest GUI open
     private final Set<UUID> whoisAdmins = ConcurrentHashMap.newKeySet();
@@ -92,14 +93,16 @@ public class PaperListener implements Listener, PluginMessageListener {
                 UUID uuid   = UUID.fromString(dis.readUTF());
                 String type   = dis.readUTF();
                 String prompt = dis.readUTF();
+                String language = dis.readUTF();
                 Player target = Bukkit.getPlayer(uuid);
                 if (target != null && target.isOnline()) {
                     activeGuiType.put(uuid, type);
                     activePrompt.put(uuid, prompt);
+                    playerLanguages.put(uuid, language);
                     if (id.naturalsmp.naturalauth.paper.gui.DialogRenderer.isDialogApiAvailable()) {
                         plugin.getLogger().info("[NaturalAuth-Debug] Opening Native Dialog GUI for "
-                                + target.getName() + ", type: " + type + ", prompt: " + prompt);
-                        id.naturalsmp.naturalauth.paper.gui.DialogRenderer.openDialogGUI(plugin, target, type, prompt);
+                                + target.getName() + ", type: " + type + ", prompt: " + prompt + ", language: " + language);
+                        id.naturalsmp.naturalauth.paper.gui.DialogRenderer.openDialogGUI(plugin, target, type, prompt, language);
                     } else {
                         plugin.getLogger().info("[NaturalAuth-Debug] Opening Anvil GUI for "
                                 + target.getName() + ", type: " + type + ", prompt: " + prompt);
@@ -151,15 +154,19 @@ public class PaperListener implements Listener, PluginMessageListener {
                         target.playSound(target.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8f, 0.9f);
                         if (id.naturalsmp.naturalauth.paper.gui.DialogRenderer.isDialogApiAvailable()) {
                             String type = activeGuiType.get(uuid);
+                            String language = playerLanguages.getOrDefault(uuid, "indonesia");
                             if (type != null) {
                                 Bukkit.getScheduler().runTaskLater(plugin, () -> {
                                     if (target.isOnline()) {
+                                        boolean isEng = "english".equalsIgnoreCase(language);
+                                        String errTitle = isEng ? (type.equalsIgnoreCase("REGISTER") ? "Registration Failed" : "Login Failed") : (type.equalsIgnoreCase("REGISTER") ? "Registrasi Gagal" : "Login Gagal");
                                         id.naturalsmp.naturalauth.paper.gui.DialogRenderer.openErrorDialog(
                                             plugin,
                                             target,
-                                            type.equalsIgnoreCase("REGISTER") ? "Registrasi Gagal" : "Login Gagal",
+                                            errTitle,
                                             msg,
-                                            () -> id.naturalsmp.naturalauth.paper.gui.DialogRenderer.openDialogGUI(plugin, target, type, msg)
+                                            language,
+                                            () -> id.naturalsmp.naturalauth.paper.gui.DialogRenderer.openDialogGUI(plugin, target, type, msg, language)
                                         );
                                     }
                                 }, 5L);
@@ -178,7 +185,8 @@ public class PaperListener implements Listener, PluginMessageListener {
                     target.closeInventory();
                     if (id.naturalsmp.naturalauth.paper.gui.DialogRenderer.isDialogApiAvailable()) {
                         plugin.getLogger().info("[NaturalAuth-Debug] Opening Native Rules Dialog for " + target.getName());
-                        id.naturalsmp.naturalauth.paper.gui.DialogRenderer.openRulesDialog(plugin, target);
+                        String language = playerLanguages.getOrDefault(uuid, "indonesia");
+                        id.naturalsmp.naturalauth.paper.gui.DialogRenderer.openRulesDialog(plugin, target, language);
                     } else {
                         plugin.getLogger().info("[NaturalAuth-Debug] Sending Chat Rules for " + target.getName());
                         sendRulesChatMessage(target);
@@ -192,7 +200,8 @@ public class PaperListener implements Listener, PluginMessageListener {
                     target.closeInventory();
                     if (id.naturalsmp.naturalauth.paper.gui.DialogRenderer.isDialogApiAvailable()) {
                         plugin.getLogger().info("[NaturalAuth-Debug] Opening Native Email Link Dialog for " + target.getName());
-                        id.naturalsmp.naturalauth.paper.gui.DialogRenderer.openEmailLinkDialog(plugin, target);
+                        String language = playerLanguages.getOrDefault(uuid, "indonesia");
+                        id.naturalsmp.naturalauth.paper.gui.DialogRenderer.openEmailLinkDialog(plugin, target, language);
                     } else {
                         plugin.getLogger().info("[NaturalAuth-Debug] Opening Anvil GUI for Email Link for " + target.getName());
                         AnvilGuiRenderer.openEmailLinkGUI(plugin, target);
@@ -217,7 +226,8 @@ public class PaperListener implements Listener, PluginMessageListener {
                     target.closeInventory();
                     if (id.naturalsmp.naturalauth.paper.gui.DialogRenderer.isDialogApiAvailable()) {
                         plugin.getLogger().info("[NaturalAuth-Debug] Opening Native Premium Dialog for " + target.getName());
-                        id.naturalsmp.naturalauth.paper.gui.DialogRenderer.openPremiumDialog(plugin, target, captcha);
+                        String language = playerLanguages.getOrDefault(uuid, "indonesia");
+                        id.naturalsmp.naturalauth.paper.gui.DialogRenderer.openPremiumDialog(plugin, target, captcha, language);
                     } else {
                         plugin.getLogger().info("[NaturalAuth-Debug] Opening Anvil GUI for Premium for " + target.getName());
                         AnvilGuiRenderer.openPremiumAnvil(plugin, target, captcha);
@@ -362,6 +372,7 @@ public class PaperListener implements Listener, PluginMessageListener {
         plugin.setLimbo(uuid, false);
         activeGuiType.remove(uuid);
         activePrompt.remove(uuid);
+        playerLanguages.remove(uuid);
         AnvilGuiRenderer.clearTempPassword(uuid);
         stopAuthUI(uuid);
         stopLimboUI(uuid);

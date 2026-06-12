@@ -27,6 +27,9 @@ public class AuthBridgeProtocol {
     // Premium GUI Handshake
     public static final byte PACKET_OPEN_PREMIUM_GUI = 16; // Velocity → Paper: open premium confirmation GUI (UUID, captcha)
     public static final byte PACKET_SUBMIT_PREMIUM_CONFIRM = 17; // Paper → Velocity: confirm player premium status (UUID)
+    
+    // Language Preference Handshake
+    public static final byte PACKET_SUBMIT_LANGUAGE = 18; // Paper → Velocity: player selected language (UUID, language)
 }
 
 
