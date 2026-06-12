@@ -110,7 +110,11 @@ public class DialogRenderer {
 
         List<DialogBody> loginBody = new ArrayList<>();
         DialogBody logoBody = getLogoBody(plugin, player);
-        if (logoBody != null) loginBody.add(logoBody);
+        if (logoBody != null) {
+            loginBody.add(DialogBody.plainMessage(Component.text("")));
+            loginBody.add(logoBody);
+            loginBody.add(DialogBody.plainMessage(Component.text("")));
+        }
         loginBody.add(DialogBody.plainMessage(Component.text("§e" + PlaceholderParser.parse(player, prompt))));
 
         Dialog dialog = Dialog.create(builder -> builder.empty()
@@ -181,7 +185,11 @@ public class DialogRenderer {
 
         List<DialogBody> registerBody = new ArrayList<>();
         DialogBody logoBodyReg = getLogoBody(plugin, player);
-        if (logoBodyReg != null) registerBody.add(logoBodyReg);
+        if (logoBodyReg != null) {
+            registerBody.add(DialogBody.plainMessage(Component.text("")));
+            registerBody.add(logoBodyReg);
+            registerBody.add(DialogBody.plainMessage(Component.text("")));
+        }
         registerBody.add(DialogBody.plainMessage(Component.text("§e" + PlaceholderParser.parse(player, prompt))));
 
         Dialog dialog = Dialog.create(builder -> builder.empty()
@@ -268,7 +276,11 @@ public class DialogRenderer {
 
         List<DialogBody> bodyList = new ArrayList<>();
         DialogBody logoBody = getLogoBody(plugin, player);
-        if (logoBody != null) bodyList.add(logoBody);
+        if (logoBody != null) {
+            bodyList.add(DialogBody.plainMessage(Component.text("")));
+            bodyList.add(logoBody);
+            bodyList.add(DialogBody.plainMessage(Component.text("")));
+        }
         bodyList.addAll(List.of(
                 DialogBody.plainMessage(Component.text("§6§lPERATURAN SERVER NATURALSMP")),
                 DialogBody.plainMessage(Component.text("§f1. Dilarang menggunakan cheat, hack, atau exploit.")),
@@ -341,7 +353,11 @@ public class DialogRenderer {
 
         List<DialogBody> bodyList = new ArrayList<>();
         DialogBody logoBody = getLogoBody(plugin, player);
-        if (logoBody != null) bodyList.add(logoBody);
+        if (logoBody != null) {
+            bodyList.add(DialogBody.plainMessage(Component.text("")));
+            bodyList.add(logoBody);
+            bodyList.add(DialogBody.plainMessage(Component.text("")));
+        }
         bodyList.addAll(List.of(
                 DialogBody.plainMessage(Component.text("§a§l✔ REGISTRASI BERHASIL!")),
                 DialogBody.plainMessage(Component.text("")),
@@ -413,7 +429,11 @@ public class DialogRenderer {
 
         List<DialogBody> bodyList = new ArrayList<>();
         DialogBody logoBody = getLogoBody(plugin, player);
-        if (logoBody != null) bodyList.add(logoBody);
+        if (logoBody != null) {
+            bodyList.add(DialogBody.plainMessage(Component.text("")));
+            bodyList.add(logoBody);
+            bodyList.add(DialogBody.plainMessage(Component.text("")));
+        }
         bodyList.addAll(List.of(
                 DialogBody.plainMessage(Component.text("§c§lApakah kamu yakin akun mu premium?")),
                 DialogBody.plainMessage(Component.text("")),
