@@ -58,9 +58,9 @@ cracked-enabled = "&aFitur Cracked diaktifkan! Silakan masuk kembali dan gunakan
 [resource-pack]
 # Set to true to send the custom resource pack containing the logo
 enabled = true
-url = "https://raw.githubusercontent.com/Natural-Minecraft/NaturalAuth/main/resourcepack/NaturalSMP-Logo-Pack.zip"
+url = "https://naturalsmp.net/packs/NaturalSMP-Logo-Pack.zip"
 # SHA-1 hash of the zip file (automatically calculated during generation)
-hash = "bdf6a3bce65555d96f60db955dbeaa218bc93542"
+hash = "62c9f38ed7e35134c20c1eac1ebe55c40a4aebef"
 # Prompt shown to the user when downloading the pack
 prompt = "&aSilakan unduh resource pack untuk memuat logo dan GUI NaturalSMP secara optimal!"
 required = false
