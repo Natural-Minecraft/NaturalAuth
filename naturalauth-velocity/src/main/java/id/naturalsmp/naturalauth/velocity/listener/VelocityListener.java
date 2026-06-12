@@ -47,7 +47,7 @@ public class VelocityListener {
     private final Map<UUID, Integer> loginAttempts = new ConcurrentHashMap<>();
     private final Map<UUID, Long> loginCooldowns = new ConcurrentHashMap<>();
     private static final int MAX_LOGIN_ATTEMPTS = 5;
-    private static final long COOLDOWN_DURATION_MS = 60_000L;
+    private static final long COOLDOWN_DURATION_MS = 120_000L;
 
 
 
@@ -654,10 +654,10 @@ public class VelocityListener {
                         player.disconnect(Component.text(isEnglish
                             ? "§c§l\uD83D\uDEAB Too Many Attempts!\n" +
                               "§r§7You failed to login " + MAX_LOGIN_ATTEMPTS + " times.\n" +
-                              "§aPlease try again in 60 seconds."
+                              "§aPlease try again in " + (COOLDOWN_DURATION_MS / 1000) + " seconds."
                             : "§c§l\uD83D\uDEAB Terlalu Banyak Percobaan!\n" +
                               "§r§7Anda gagal login sebanyak " + MAX_LOGIN_ATTEMPTS + " kali.\n" +
-                              "§aSilakan coba kembali dalam 60 detik."
+                              "§aSilakan coba kembali dalam " + (COOLDOWN_DURATION_MS / 1000) + " detik."
                         ));
                     } else {
                         plugin.logActivity(uuid, player.getUsername(), "LOGIN_FAILED", player.getRemoteAddress().getAddress().getHostAddress(), "Password GUI salah (" + attempts + "/" + MAX_LOGIN_ATTEMPTS + ")");
@@ -704,7 +704,7 @@ public class VelocityListener {
                     player.disconnect(Component.text(
                         "§c§l\uD83D\uDEAB Terlalu Banyak Percobaan!\n" +
                         "§r§7Anda gagal login sebanyak " + MAX_LOGIN_ATTEMPTS + " kali.\n" +
-                        "§aSilakan coba kembali dalam 60 detik."
+                        "§aSilakan coba kembali dalam " + (COOLDOWN_DURATION_MS / 1000) + " detik."
                     ));
                 } else {
                     plugin.logActivity(uuid, player.getUsername(), "LOGIN_FAILED", player.getRemoteAddress().getAddress().getHostAddress(), "Password Command salah (" + attempts + "/" + MAX_LOGIN_ATTEMPTS + ")");
