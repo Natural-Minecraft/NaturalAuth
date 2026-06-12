@@ -40,6 +40,8 @@ public class VelocityListener {
     private final Set<UUID> pendingAutoRulesPlayers = ConcurrentHashMap.newKeySet();
     // Tracks player preferred language in-memory (for unregistered players, or until saved to database)
     private final Map<UUID, String> tempLanguages = new ConcurrentHashMap<>();
+    // Tracks temporary captchas for unregistered players who choose premium
+    private final Map<UUID, String> tempCaptchas = new ConcurrentHashMap<>();
 
     // ── Brute Force Protection ───────────────────────────────────────────────
     private final Map<UUID, Integer> loginAttempts = new ConcurrentHashMap<>();
@@ -481,10 +483,67 @@ public class VelocityListener {
                     boolean registered = plugin.getDatabaseManager().isRegistered(player.getUsername());
                     if (registered) {
                         plugin.getDatabaseManager().setLanguage(uuid, language);
+                        plugin.getLogger().info("[NaturalAuth] Set language for " + player.getUsername() + " to: " + language);
+                        startAuthFlow(player);
+                    } else {
+                        plugin.getLogger().info("[NaturalAuth] Pre-reg language selected: " + language + " for " + player.getUsername());
+                        sendOpenGuiToPaper(player, "PRE_REG_TYPE", "", language);
                     }
-                    plugin.getLogger().info("[NaturalAuth] Set language for " + player.getUsername() + " to: " + language);
-                    // Reopen the GUI in the new language
-                    startAuthFlow(player);
+                });
+            } else if (packetId == AuthBridgeProtocol.PACKET_SUBMIT_ACCOUNT_TYPE) {
+                UUID uuid = UUID.fromString(dis.readUTF());
+                String choice = dis.readUTF();
+                plugin.getServer().getPlayer(uuid).ifPresent(player -> {
+                    String lang = tempLanguages.getOrDefault(uuid, "indonesia");
+                    boolean isEnglish = "english".equalsIgnoreCase(lang);
+                    
+                    if (choice.equalsIgnoreCase("cracked")) {
+                        String prompt = isEnglish ? "Register (New Password):" : "Daftar (Password Baru):";
+                        sendOpenGuiToPaper(player, "REGISTER", prompt, lang);
+                    } else if (choice.equalsIgnoreCase("premium")) {
+                        String captcha = generateCaptcha(6);
+                        tempCaptchas.put(uuid, captcha);
+                        sendOpenGuiToPaper(player, "PRE_REG_PREMIUM", captcha, lang);
+                    }
+                });
+            } else if (packetId == AuthBridgeProtocol.PACKET_SUBMIT_PRE_REG_PREMIUM) {
+                UUID uuid = UUID.fromString(dis.readUTF());
+                String submittedCaptcha = dis.readUTF();
+                plugin.getServer().getPlayer(uuid).ifPresent(player -> {
+                    String lang = tempLanguages.getOrDefault(uuid, "indonesia");
+                    boolean isEnglish = "english".equalsIgnoreCase(lang);
+                    
+                    String expectedCaptcha = tempCaptchas.remove(uuid);
+                    if (expectedCaptcha == null || !expectedCaptcha.equals(submittedCaptcha)) {
+                        String captcha = generateCaptcha(6);
+                        tempCaptchas.put(uuid, captcha);
+                        
+                        player.sendMessage(LegacyComponentSerializer.legacySection().deserialize(
+                                isEnglish ? "§c§l[!] §r§cIncorrect captcha! Please try again." : "§c§l[!] §r§cCaptcha salah! Silakan coba lagi."
+                        ));
+                        sendOpenGuiToPaper(player, "PRE_REG_PREMIUM", captcha, lang);
+                        return;
+                    }
+                    
+                    String placeholderPass = "PREMIUM_AUTO_" + UUID.randomUUID().toString();
+                    boolean success = plugin.register(uuid, player.getUsername(), placeholderPass);
+                    if (success) {
+                        plugin.getDatabaseManager().setPremium(uuid, true);
+                        plugin.getDatabaseManager().setLanguage(uuid, lang);
+                        plugin.logActivity(uuid, player.getUsername(), "PREMIUM_REGISTER", player.getRemoteAddress().getAddress().getHostAddress(), "Registrasi akun premium berhasil");
+                        
+                        String disconnectMsg = isEnglish
+                                ? "§a§l✔ Premium Registration Successful!\n\n§7Please rejoin the server using your original Mojang launcher."
+                                : "§a§l✔ Registrasi Premium Berhasil!\n\n§7Silakan masuk kembali menggunakan Launcher Original Mojang Anda.";
+                                
+                        player.disconnect(LegacyComponentSerializer.legacySection().deserialize(disconnectMsg));
+                    } else {
+                        String errorMsg = isEnglish ? "Registration failed, try again!" : "Registrasi gagal, coba lagi!";
+                        player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§c§l[!] §r§c" + errorMsg));
+                        String captcha = generateCaptcha(6);
+                        tempCaptchas.put(uuid, captcha);
+                        sendOpenGuiToPaper(player, "PRE_REG_PREMIUM", captcha, lang);
+                    }
                 });
             }
 
@@ -517,12 +576,10 @@ public class VelocityListener {
             }
         } else {
             // Java Flow - Signal Paper companion to open Dialog GUI
-            String type = registered ? "LOGIN" : "REGISTER";
-            String prompt;
+            String type = registered ? "LOGIN" : "PRE_REG_LANG";
+            String prompt = "";
             if (registered) {
                 prompt = isEnglish ? "Enter Password:" : "Masukkan Password:";
-            } else {
-                prompt = isEnglish ? "Register (New Password):" : "Daftar (Password Baru):";
             }
             sendOpenGuiToPaper(player, type, prompt, language);
         }
@@ -872,5 +929,15 @@ public class VelocityListener {
             plugin.logActivity(uuid, player.getUsername(), "OTP_FAILED", player.getRemoteAddress().getAddress().getHostAddress(), "Input OTP salah untuk email: " + email);
             sendAuthStatusToPaper(player, false, "OTP salah!");
         }
+    }
+
+    private String generateCaptcha(int length) {
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        java.util.Random rand = new java.util.Random();
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            sb.append(chars.charAt(rand.nextInt(chars.length())));
+        }
+        return sb.toString();
     }
 }

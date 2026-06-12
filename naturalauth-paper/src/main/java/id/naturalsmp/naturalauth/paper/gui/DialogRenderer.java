@@ -50,6 +50,12 @@ public class DialogRenderer {
     public static void openDialogGUI(NaturalAuthPaper plugin, Player player, String type, String prompt, String language) {
         if (type.equalsIgnoreCase("REGISTER")) {
             openRegisterDialog(plugin, player, prompt, language);
+        } else if (type.equalsIgnoreCase("PRE_REG_LANG")) {
+            openPreRegLangDialog(plugin, player, language);
+        } else if (type.equalsIgnoreCase("PRE_REG_TYPE")) {
+            openPreRegTypeDialog(plugin, player, language);
+        } else if (type.equalsIgnoreCase("PRE_REG_PREMIUM")) {
+            openPreRegPremiumDialog(plugin, player, prompt, language);
         } else {
             openLoginDialog(plugin, player, prompt, language);
         }
@@ -551,6 +557,237 @@ public class DialogRenderer {
             player.sendPluginMessage(plugin, AuthBridgeProtocol.FULL_CHANNEL, baos.toByteArray());
         } catch (IOException e) {
             plugin.getLogger().severe("Failed to send PACKET_SUBMIT_PREMIUM_CONFIRM to Velocity!");
+            e.printStackTrace();
+        }
+    }
+
+    public static void openPreRegLangDialog(NaturalAuthPaper plugin, Player player, String language) {
+        boolean isEnglish = "english".equalsIgnoreCase(language);
+
+        BooleanDialogInput langCheckbox = DialogInput.bool(
+                "english",
+                Component.text("Gunakan Bahasa Inggris / Use English"),
+                isEnglish,
+                "true",
+                "false"
+        );
+
+        ActionButton nextButton = ActionButton.builder(Component.text(isEnglish ? "Next" : "Lanjut"))
+                .action(DialogAction.customClick((response, audience) -> {
+                    Boolean useEnglish = response.getBoolean("english");
+                    String selectedLang = (useEnglish != null && useEnglish) ? "english" : "indonesia";
+                    audience.closeDialog();
+                    submitLanguageToVelocity(plugin, player, selectedLang);
+                }, ClickCallback.Options.builder().build()))
+                .build();
+
+        ActionButton quitButton = ActionButton.builder(Component.text(isEnglish ? "Quit" : "Quit / Keluar"))
+                .action(DialogAction.customClick((response, audience) -> {
+                    audience.closeDialog();
+                    player.kick(Component.text(isEnglish ? "§cYou chose to quit." : "§cAnda memilih untuk keluar (Quit)."));
+                }, ClickCallback.Options.builder().build()))
+                .build();
+
+        List<DialogBody> bodyList = new ArrayList<>();
+        DialogBody logoBody = getLogoBody(plugin, player);
+        if (logoBody != null) {
+            bodyList.add(DialogBody.plainMessage(Component.text("")));
+            bodyList.add(DialogBody.plainMessage(Component.text("")));
+            bodyList.add(logoBody);
+            bodyList.add(DialogBody.plainMessage(Component.text("")));
+        }
+        bodyList.add(DialogBody.plainMessage(Component.text("§7Pilih Bahasa / Select Language")));
+        bodyList.add(DialogBody.plainMessage(Component.text("§eSilakan pilih bahasa Anda untuk melanjutkan.")));
+
+        Dialog dialog = Dialog.create(builder -> builder.empty()
+                .base(DialogBase.builder(Component.text("Select Language"))
+                        .canCloseWithEscape(false)
+                        .body(bodyList)
+                        .inputs(List.of(langCheckbox))
+                        .build())
+                .type(DialogType.multiAction(List.of(nextButton), quitButton, 1))
+        );
+
+        player.showDialog(dialog);
+    }
+
+    public static void openPreRegTypeDialog(NaturalAuthPaper plugin, Player player, String language) {
+        boolean isEnglish = "english".equalsIgnoreCase(language);
+
+        ActionButton premiumButton = ActionButton.builder(Component.text(isEnglish ? "Premium Account" : "Akun Premium"))
+                .action(DialogAction.customClick((response, audience) -> {
+                    audience.closeDialog();
+                    submitAccountTypeToVelocity(plugin, player, "premium");
+                }, ClickCallback.Options.builder().build()))
+                .build();
+
+        ActionButton crackedButton = ActionButton.builder(Component.text(isEnglish ? "Cracked Account" : "Akun Cracked"))
+                .action(DialogAction.customClick((response, audience) -> {
+                    audience.closeDialog();
+                    submitAccountTypeToVelocity(plugin, player, "cracked");
+                }, ClickCallback.Options.builder().build()))
+                .build();
+
+        ActionButton quitButton = ActionButton.builder(Component.text(isEnglish ? "Quit" : "Quit / Keluar"))
+                .action(DialogAction.customClick((response, audience) -> {
+                    audience.closeDialog();
+                    player.kick(Component.text(isEnglish ? "§cYou chose to quit." : "§cAnda memilih untuk keluar (Quit)."));
+                }, ClickCallback.Options.builder().build()))
+                .build();
+
+        List<DialogBody> bodyList = new ArrayList<>();
+        DialogBody logoBody = getLogoBody(plugin, player);
+        if (logoBody != null) {
+            bodyList.add(DialogBody.plainMessage(Component.text("")));
+            bodyList.add(DialogBody.plainMessage(Component.text("")));
+            bodyList.add(logoBody);
+            bodyList.add(DialogBody.plainMessage(Component.text("")));
+        }
+
+        if (isEnglish) {
+            bodyList.addAll(List.of(
+                    DialogBody.plainMessage(Component.text("§6§lSELECT ACCOUNT TYPE")),
+                    DialogBody.plainMessage(Component.text("")),
+                    DialogBody.plainMessage(Component.text("§c§lIMPORTANT WARNING:")),
+                    DialogBody.plainMessage(Component.text("§eIf you select Premium, your account will be locked to Mojang verification.")),
+                    DialogBody.plainMessage(Component.text("§cIf you are actually Cracked, you won't be able to join and must contact admin!")),
+                    DialogBody.plainMessage(Component.text("")),
+                    DialogBody.plainMessage(Component.text("§7Choose your account type below:"))
+            ));
+        } else {
+            bodyList.addAll(List.of(
+                    DialogBody.plainMessage(Component.text("§6§lPILIH TIPE AKUN")),
+                    DialogBody.plainMessage(Component.text("")),
+                    DialogBody.plainMessage(Component.text("§c§lPERINGATAN PENTING:")),
+                    DialogBody.plainMessage(Component.text("§eJika memilih Premium, akun Anda akan dikunci dengan verifikasi Mojang.")),
+                    DialogBody.plainMessage(Component.text("§cJika Anda sebenarnya Cracked, Anda tidak akan bisa masuk dan harus hubungi admin!")),
+                    DialogBody.plainMessage(Component.text("")),
+                    DialogBody.plainMessage(Component.text("§7Pilih tipe akun Anda di bawah:"))
+            ));
+        }
+
+        Dialog dialog = Dialog.create(builder -> builder.empty()
+                .base(DialogBase.builder(Component.text(isEnglish ? "Account Type" : "Tipe Akun"))
+                        .canCloseWithEscape(false)
+                        .body(bodyList)
+                        .build())
+                .type(DialogType.multiAction(List.of(premiumButton, crackedButton), quitButton, 2))
+        );
+
+        player.showDialog(dialog);
+    }
+
+    public static void openPreRegPremiumDialog(NaturalAuthPaper plugin, Player player, String captcha, String language) {
+        boolean isEnglish = "english".equalsIgnoreCase(language);
+
+        TextDialogInput captchaInput = DialogInput.text(
+                "captcha_input",
+                200,
+                Component.text(isEnglish ? "Type Captcha" : "Ketik Captcha"),
+                true,
+                "",
+                72,
+                null
+        );
+
+        ActionButton confirmButton = ActionButton.builder(Component.text(isEnglish ? "Yes, Correct" : "Ya, Benar"))
+                .action(DialogAction.customClick((response, audience) -> {
+                    String typed = response.getText("captcha_input");
+                    if (typed == null || typed.trim().isEmpty()) {
+                        audience.closeDialog();
+                        player.sendMessage(isEnglish ? "§c§l[!] §r§cCaptcha cannot be empty!" : "§c§l[!] §r§cCaptcha tidak boleh kosong!");
+                        submitPreRegPremiumToVelocity(plugin, player, "");
+                        return;
+                    }
+
+                    audience.closeDialog();
+                    submitPreRegPremiumToVelocity(plugin, player, typed);
+                }, ClickCallback.Options.builder().build()))
+                .build();
+
+        ActionButton backButton = ActionButton.builder(Component.text(isEnglish ? "Back" : "Kembali"))
+                .action(DialogAction.customClick((response, audience) -> {
+                    audience.closeDialog();
+                    submitLanguageToVelocity(plugin, player, language);
+                }, ClickCallback.Options.builder().build()))
+                .build();
+
+        ActionButton quitButton = ActionButton.builder(Component.text(isEnglish ? "Quit" : "Quit / Keluar"))
+                .action(DialogAction.customClick((response, audience) -> {
+                    audience.closeDialog();
+                    player.kick(Component.text(isEnglish ? "§cYou chose to quit." : "§cAnda memilih untuk keluar (Quit)."));
+                }, ClickCallback.Options.builder().build()))
+                .build();
+
+        List<DialogBody> bodyList = new ArrayList<>();
+        DialogBody logoBody = getLogoBody(plugin, player);
+        if (logoBody != null) {
+            bodyList.add(DialogBody.plainMessage(Component.text("")));
+            bodyList.add(DialogBody.plainMessage(Component.text("")));
+            bodyList.add(logoBody);
+            bodyList.add(DialogBody.plainMessage(Component.text("")));
+        }
+
+        if (isEnglish) {
+            bodyList.addAll(List.of(
+                    DialogBody.plainMessage(Component.text("§6§lPREMIUM VERIFICATION")),
+                    DialogBody.plainMessage(Component.text("")),
+                    DialogBody.plainMessage(Component.text("§c§lAre you sure your account is Premium?")),
+                    DialogBody.plainMessage(Component.text("§7Tulis Ulang Ini / Rewrite This:")),
+                    DialogBody.plainMessage(Component.text("§a§l" + captcha)),
+                    DialogBody.plainMessage(Component.text("")),
+                    DialogBody.plainMessage(Component.text("§eType the 6-character captcha below to confirm:"))
+            ));
+        } else {
+            bodyList.addAll(List.of(
+                    DialogBody.plainMessage(Component.text("§6§lVERIFIKASI PREMIUM")),
+                    DialogBody.plainMessage(Component.text("")),
+                    DialogBody.plainMessage(Component.text("§c§lApakah benar akun Anda Premium?")),
+                    DialogBody.plainMessage(Component.text("§7Tulis Ulang Ini / Rewrite This:")),
+                    DialogBody.plainMessage(Component.text("§a§l" + captcha)),
+                    DialogBody.plainMessage(Component.text("")),
+                    DialogBody.plainMessage(Component.text("§eKetik 6 karakter captcha di bawah untuk mengonfirmasi:"))
+            ));
+        }
+
+        Dialog dialog = Dialog.create(builder -> builder.empty()
+                .base(DialogBase.builder(Component.text(isEnglish ? "Premium Verification" : "Verifikasi Premium"))
+                        .canCloseWithEscape(false)
+                        .body(bodyList)
+                        .inputs(List.of(captchaInput))
+                        .build())
+                .type(DialogType.multiAction(List.of(confirmButton, backButton), quitButton, 2))
+        );
+
+        player.showDialog(dialog);
+    }
+
+    private static void submitAccountTypeToVelocity(NaturalAuthPaper plugin, Player player, String type) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             DataOutputStream dos = new DataOutputStream(baos)) {
+
+            dos.writeByte(AuthBridgeProtocol.PACKET_SUBMIT_ACCOUNT_TYPE);
+            dos.writeUTF(player.getUniqueId().toString());
+            dos.writeUTF(type);
+
+            player.sendPluginMessage(plugin, AuthBridgeProtocol.FULL_CHANNEL, baos.toByteArray());
+        } catch (IOException e) {
+            plugin.getLogger().severe("Failed to send PACKET_SUBMIT_ACCOUNT_TYPE to Velocity!");
+            e.printStackTrace();
+        }
+    }
+
+    private static void submitPreRegPremiumToVelocity(NaturalAuthPaper plugin, Player player, String captcha) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             DataOutputStream dos = new DataOutputStream(baos)) {
+
+            dos.writeByte(AuthBridgeProtocol.PACKET_SUBMIT_PRE_REG_PREMIUM);
+            dos.writeUTF(player.getUniqueId().toString());
+            dos.writeUTF(captcha);
+
+            player.sendPluginMessage(plugin, AuthBridgeProtocol.FULL_CHANNEL, baos.toByteArray());
+        } catch (IOException e) {
+            plugin.getLogger().severe("Failed to send PACKET_SUBMIT_PRE_REG_PREMIUM to Velocity!");
             e.printStackTrace();
         }
     }

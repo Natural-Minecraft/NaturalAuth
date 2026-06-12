@@ -30,6 +30,10 @@ public class AuthBridgeProtocol {
     
     // Language Preference Handshake
     public static final byte PACKET_SUBMIT_LANGUAGE = 18; // Paper → Velocity: player selected language (UUID, language)
+    
+    // Pre-Registration Flow Handshake
+    public static final byte PACKET_SUBMIT_ACCOUNT_TYPE = 19; // Paper → Velocity: player selected account type (UUID, type)
+    public static final byte PACKET_SUBMIT_PRE_REG_PREMIUM = 20; // Paper → Velocity: player submitted premium pre-reg captcha (UUID, captcha)
 }
 
 
