@@ -218,17 +218,22 @@ public class VelocityListener {
             plugin.setAuthenticated(uuid, false);
             plugin.getJoinTimes().put(uuid, System.currentTimeMillis());
 
-            // Kick player if not authenticated within 60 seconds
-            plugin.getServer().getScheduler().buildTask(plugin, () -> {
-                if (player.isActive() && !plugin.isAuthenticated(uuid)) {
-                    plugin.logActivity(uuid, player.getUsername(), "TIMEOUT", ip, "Kick otomatis (Timeout 60 detik)");
-                    player.disconnect(Component.text(
-                        "§c§l⏱ Waktu Habis!\n" +
-                        "§r§7Anda tidak menyelesaikan login dalam 60 detik.\n" +
-                        "§aGabung kembali untuk mencoba lagi."
-                    ));
+            // Kick player if not authenticated within 2 minutes (only if registered/logging in)
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                boolean isRegistered = plugin.getDatabaseManager().isRegistered(player.getUsername());
+                if (isRegistered) {
+                    plugin.getServer().getScheduler().buildTask(plugin, () -> {
+                        if (player.isActive() && !plugin.isAuthenticated(uuid)) {
+                            plugin.logActivity(uuid, player.getUsername(), "TIMEOUT", ip, "Kick otomatis (Timeout 2 menit)");
+                            player.disconnect(Component.text(
+                                "§c§l⏱ Waktu Habis!\n" +
+                                "§r§7Anda tidak menyelesaikan login dalam 2 menit.\n" +
+                                "§aGabung kembali untuk mencoba lagi."
+                            ));
+                        }
+                    }).delay(120, TimeUnit.SECONDS).schedule();
                 }
-            }).delay(60, TimeUnit.SECONDS).schedule();
+            });
         }
     }
 

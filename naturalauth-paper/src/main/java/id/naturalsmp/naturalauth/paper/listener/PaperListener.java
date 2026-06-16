@@ -59,7 +59,7 @@ public class PaperListener implements Listener, PluginMessageListener {
     private final Map<UUID, BossBar> bossBars       = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> actionBarTaskIds = new ConcurrentHashMap<>();
     private final Map<UUID, Long>    loginStartTimes  = new ConcurrentHashMap<>();
-    private static final int LOGIN_TIMEOUT_SECONDS = 60;
+    private static final int LOGIN_TIMEOUT_SECONDS = 120;
 
     // ── Limbo UI (BossBar + Particles + Chime) ───────────────────────────────
     private final Map<UUID, BossBar> limboBossBars = new ConcurrentHashMap<>();
@@ -99,6 +99,9 @@ public class PaperListener implements Listener, PluginMessageListener {
                     activeGuiType.put(uuid, type);
                     activePrompt.put(uuid, prompt);
                     playerLanguages.put(uuid, language);
+                    if (!type.equalsIgnoreCase("LOGIN")) {
+                        stopAuthUI(uuid);
+                    }
                     if (id.naturalsmp.naturalauth.paper.gui.DialogRenderer.isDialogApiAvailable()) {
                         plugin.getLogger().info("[NaturalAuth-Debug] Opening Native Dialog GUI for "
                                 + target.getName() + ", type: " + type + ", prompt: " + prompt + ", language: " + language);
@@ -790,6 +793,11 @@ public class PaperListener implements Listener, PluginMessageListener {
         UUID uuid = player.getUniqueId();
         if (plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) return;
 
+        String type = activeGuiType.get(uuid);
+        if (type != null && !type.equalsIgnoreCase("LOGIN")) {
+            return;
+        }
+
         loginStartTimes.put(uuid, System.currentTimeMillis());
 
         BossBar bossBar = Bukkit.createBossBar(
@@ -818,7 +826,7 @@ public class PaperListener implements Listener, PluginMessageListener {
             if (remaining <= 0) {
                 player.kick(Component.text(
                     "§c§l⏱ Waktu Habis!\n" +
-                    "§r§7Anda tidak menyelesaikan login dalam 60 detik.\n" +
+                    "§r§7Anda tidak menyelesaikan login dalam 2 menit.\n" +
                     "§aGabung kembali untuk mencoba lagi."
                 ));
                 stopAuthUI(uuid);
