@@ -12,7 +12,8 @@ Dokumentasi riwayat pembaruan, perbaikan bug, dan rilis fitur untuk plugin **Nat
 ### ⚡ Peningkatan
 - **Dynamic Captcha Refresh**: Mismatch captcha tidak lagi memicu error dialog statis, melainkan mengirim chat error warning dan menyegarkan dialog input dengan captcha baru secara instan.
 - **Brute Force Cooldown Update**: Meningkatkan durasi cooldown login gagal dari 60 detik menjadi 120 detik (2 menit) dan mengubah pesan putus koneksi (kick) brute-force agar menampilkan durasi cooldown secara dinamis.
-- **Register Cooldown Bypass**: Memastikan cooldown brute-force hanya berlaku untuk login saja, tidak untuk registrasi akun baru.
+- **Register Cooldown & Timeout Bypass**: Memastikan cooldown brute-force dan timer hitung mundur (timeout kick) dinonaktifkan sepenuhnya pada saat registrasi baru agar tidak mengganggu/merusak UX pendaftaran pemain.
+- **Login Timeout Extension**: Memperpanjang batas waktu pengisian password saat login (timeout kick) dari 60 detik menjadi 120 detik (2 menit) untuk kenyamanan pemain.
 
 ---
 
