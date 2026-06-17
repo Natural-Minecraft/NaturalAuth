@@ -180,7 +180,18 @@ public class NaturalAuthVelocity {
                 .repeat(5, TimeUnit.MINUTES)
                 .schedule();
 
-        logger.info("NaturalAuth Velocity Plugin has been initialized successfully!");
+        server.getConsoleCommandSource().sendMessage(
+                LegacyComponentSerializer.legacyAmpersand().deserialize(
+                    "\n&a===============\n" +
+                    "&a _   _       _                  _     &e    _         _   _     \n" +
+                    "&a| \ | | __ _| |_ _   _ _ __ __ _| |   &e   / \  _   _| |_| |__  \n" +
+                    "&a|  \| |/ _` | __| | | | '__/ _` | |   &e  / _ \| | | | __| '_ \ \n" +
+                    "&a| |\  | (_| | |_| |_| | | | (_| | |   &e / ___ \ |_| | |_| | | |\n" +
+                    "&a|_| \_|\__,_|\__|\__,_|_|  \__,_|_|   &e/_/   \_\__,_|\__|_| |_|\n" +
+                    "       >> &eNaturalAuth (Velocity) v1.0-SNAPSHOT Enabled! <<\n" +
+                    "&a===============\n"
+                )
+        );
     }
 
     @Subscribe
