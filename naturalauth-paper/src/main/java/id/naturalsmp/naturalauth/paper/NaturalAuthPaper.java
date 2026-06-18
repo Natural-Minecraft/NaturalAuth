@@ -90,14 +90,14 @@ public class NaturalAuthPaper extends JavaPlugin {
 
         org.bukkit.Bukkit.getConsoleSender().sendMessage(
                 org.bukkit.ChatColor.translateAlternateColorCodes('&',
-                    "\n&a===============\n" +
+                    "\n&a================================================================================\n" +
                     "&a _   _       _                  _     &e    _         _   _\n" +
                     "&a| \\ | | __ _| |_ _   _ _ __ __ _| |   &e    / \\  _   _| |_| |__\n" +
                     "&a|  \\| |/ _` | __| | | | '__/ _` | |   &e   / _ \\| | | | __| '_ \\\n" +
                     "&a| |\\  | (_| | |_| |_| | | | (_| | |   &e  / ___ \\ |_| | |_| | | |\n" +
                     "&a|_| \\_|\\__,_|\\__|\\__,_|_|    /_/   \\_\\&e__,_|\\__|_| |_|\n" +
                     "       >> &eNaturalAuth (Paper) v" + getDescription().getVersion() + " Enabled! <<\n" +
-                    "&a===============\n"
+                    "&a================================================================================\n"
                 )
         );
     }
