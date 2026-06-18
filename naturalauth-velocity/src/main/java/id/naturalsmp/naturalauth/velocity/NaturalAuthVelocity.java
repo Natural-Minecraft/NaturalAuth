@@ -183,7 +183,7 @@ public class NaturalAuthVelocity {
         server.getConsoleCommandSource().sendMessage(
                 LegacyComponentSerializer.legacyAmpersand().deserialize(
                     "\n&a================================================================================\n" +
-                    "&a _   _       _                               _      &e    _         _   _\n" +
+                    "&a _   _       _                             _        &e    _         _   _\n" +
                     "&a| \\ | | __ _| |_ _   _ _ __ __ _  | |   &e   / \\   _   _| |_| |__\n" +
                     "&a|  \\| |/ _` | __| | | | '__/ _` | | |   &e  / _ \\ | | | | __| '_ \\\n" +
                     "&a| |\\  | (_| | |_| |_| | | | (_| | | |   &e / ___ \\| |_| | |_| | | |\n" +
