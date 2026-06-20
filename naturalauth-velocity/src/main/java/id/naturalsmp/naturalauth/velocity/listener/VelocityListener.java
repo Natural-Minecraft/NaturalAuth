@@ -777,10 +777,7 @@ public class VelocityListener {
 
         String destinationName = plugin.getConfig().getTable("servers").getString("success-target", "survival");
         if (!plugin.isServerOnline(destinationName)) {
-            plugin.getLogger().info("Target server " + destinationName + " is offline. Adding player " + player.getUsername() + " to reconnection queue.");
-            if (plugin.getQueueManager() != null) {
-                plugin.getQueueManager().addPlayer(player, destinationName);
-            }
+            plugin.getLogger().info("Target server " + destinationName + " is offline. Sending player " + player.getUsername() + " to Limbo lobby.");
             plugin.registerLimboPlayer(uuid);
             sendLimboStatusToPaper(player, true);
             return;
