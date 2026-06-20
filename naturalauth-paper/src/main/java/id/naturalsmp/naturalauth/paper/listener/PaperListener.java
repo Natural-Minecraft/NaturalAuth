@@ -143,13 +143,6 @@ public class PaperListener implements Listener, PluginMessageListener {
                                 target.sendMessage("§a§lNaturalAuth §r§aSesi aktif terdeteksi. Anda telah terautentikasi otomatis.");
                             } else {
                                 target.sendMessage("§a§lNaturalAuth §r§aLogin berhasil!");
-                                // Success Title & Sound
-                                target.showTitle(Title.title(
-                                    Component.text("§a✔ Login Berhasil!"),
-                                    Component.text("§7Selamat datang kembali, §f" + target.getName() + "§7!"),
-                                    Title.Times.times(Duration.ofMillis(200), Duration.ofMillis(2500), Duration.ofMillis(500))
-                                ));
-                                target.playSound(target.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.2f);
                             }
                     } else {
                         target.sendMessage("§c§lNaturalAuth §r§c" + msg);
@@ -281,17 +274,6 @@ public class PaperListener implements Listener, PluginMessageListener {
                 if (target != null && target.isOnline()) {
                     plugin.setLimbo(uuid, false);
                     stopLimboUI(uuid);
-                    Bukkit.getScheduler().runTask(plugin, () -> {
-                        if (target.isOnline()) {
-                            target.showTitle(Title.title(
-                                Component.text("§a§l🚀 REKONEKSI!"),
-                                Component.text("§7Menghubungkan kembali ke server utama..."),
-                                Title.Times.times(Duration.ofMillis(200), Duration.ofMillis(2000), Duration.ofMillis(800))
-                            ));
-                            target.playSound(target.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.2f);
-                            target.playSound(target.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.6f, 1.5f);
-                        }
-                    });
                 }
             }
 
@@ -315,6 +297,8 @@ public class PaperListener implements Listener, PluginMessageListener {
             plugin.setPendingRules(uuid, false);
             return;
         }
+
+        event.setJoinMessage("§a§l" + player.getName() + " §aBergabung ke limbo!");
 
         plugin.setAuthenticated(uuid, false);
         plugin.setPendingRules(uuid, false);
@@ -369,7 +353,11 @@ public class PaperListener implements Listener, PluginMessageListener {
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        UUID uuid = event.getPlayer().getUniqueId();
+        Player player = event.getPlayer();
+        UUID uuid = player.getUniqueId();
+        if (plugin.isLobbyMode()) {
+            event.setQuitMessage("§c§l" + player.getName() + " §cKeluar dari limbo!");
+        }
         plugin.setAuthenticated(uuid, false);
         plugin.setPendingRules(uuid, false);
         plugin.setLimbo(uuid, false);
@@ -542,14 +530,16 @@ public class PaperListener implements Listener, PluginMessageListener {
     public void onPlayerChat(AsyncPlayerChatEvent event) {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
-        if (plugin.isLobbyMode() || !plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
+        if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
             event.setCancelled(true);
             if (plugin.isPendingRules(uuid)) {
                 player.sendMessage("§cAnda harus menyetujui peraturan server terlebih dahulu!");
-            } else if (!plugin.isAuthenticated(uuid)) {
+            } else {
                 player.sendMessage("§cAnda harus login terlebih dahulu!");
             }
+            return;
         }
+        event.setFormat("%1$s: %2$s");
     }
 
     @EventHandler
@@ -699,78 +689,7 @@ public class PaperListener implements Listener, PluginMessageListener {
     private void startLimboUI(Player player) {
         UUID uuid = player.getUniqueId();
         stopLimboUI(uuid); // Cancel any prior limbo task
-
-        // Create purple Limbo BossBar
-        BossBar bossBar = Bukkit.createBossBar(
-            "§d§l🌌 LIMBO 🌌 §8| §fServer utama sedang bersiap... §7[Menunggu]",
-            BarColor.PURPLE,
-            BarStyle.SEGMENTED_10
-        );
-        bossBar.addPlayer(player);
-        bossBar.setProgress(1.0);
-        limboBossBars.put(uuid, bossBar);
-
-        // ── Announcement chat message ─────────────────────────────────────────
-        Bukkit.getScheduler().runTask(plugin, () -> {
-            if (!player.isOnline()) return;
-            player.sendMessage("§d§l━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-            player.sendMessage("§d§l  🌌 LIMBO — Ruang Tunggu 🌌");
-            player.sendMessage("§8│ §7Server utama sedang offline atau restart.");
-            player.sendMessage("§8│ §7Anda akan otomatis dihubungkan kembali");
-            player.sendMessage("§8│ §7ketika server siap.");
-            player.sendMessage("§8│");
-            player.sendMessage("§8│ §bGunakan §f🧭 Kompas §bdi slot ke-5 hotbar");
-            player.sendMessage("§8│ §buntuk menjelajahi server lain.");
-            player.sendMessage("§d§l━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-
-            player.showTitle(Title.title(
-                Component.text("§d§l🌌 LIMBO"),
-                Component.text("§7Menunggu server utama..."),
-                Title.Times.times(Duration.ofMillis(300), Duration.ofMillis(3500), Duration.ofMillis(800))
-            ));
-            player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 0.7f);
-        });
-
-        // ── Repeating ambient task (particles + chime + actionbar) ───────────
-        final int[] tickCounter = {0};
-        int taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
-            if (!player.isOnline() || !plugin.isInLimbo(uuid)) {
-                stopLimboUI(uuid);
-                return;
-            }
-            tickCounter[0]++;
-
-            // Aesthetic particles around the player
-            Location loc = player.getLocation().add(0, 1.0, 0);
-            player.spawnParticle(Particle.WITCH, loc, 3, 0.4, 0.5, 0.4, 0.01);
-            player.spawnParticle(Particle.PORTAL,     loc, 5, 0.3, 0.8, 0.3, 0.05);
-
-            // Amethyst chime every 4 seconds (80 ticks at 20 TPS)
-            if (tickCounter[0] % 80 == 0) {
-                player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME,
-                    0.5f, 0.8f + (float)(Math.random() * 0.5));
-            }
-
-            // Animated BossBar title flicker (every 40 ticks)
-            BossBar bar = limboBossBars.get(uuid);
-            if (bar != null) {
-                boolean blink = (tickCounter[0] % 40) < 20;
-                bar.setTitle(blink
-                    ? "§d§l🌌 LIMBO 🌌 §8| §fServer utama sedang bersiap... §7[Menunggu]"
-                    : "§5§l🌌 LIMBO 🌌 §8| §7Mohon bersabar... ⌛");
-            }
-
-            // Rotate ActionBar hints every 5 seconds (100 ticks)
-            int hint = (tickCounter[0] / 100) % 3;
-            String actionBarText = switch (hint) {
-                case 0  -> "§d🌌 §7Anda sedang di §dLimbo §7— Server utama akan segera aktif!";
-                case 1  -> "§b🧭 §7Klik kanan §bKompas §7untuk memilih server lain.";
-                default -> "§e⌛ §7Mohon tunggu... Proxy sedang memantau server utama.";
-            };
-            player.sendActionBar(Component.text(actionBarText));
-
-        }, 0L, 5L); // every 5 ticks (0.25 s) for smooth particles
-        limboTaskIds.put(uuid, taskId);
+        // Visual effects and messages for Limbo UI have been disabled
     }
 
     private void stopLimboUI(UUID uuid) {
@@ -800,15 +719,7 @@ public class PaperListener implements Listener, PluginMessageListener {
 
         loginStartTimes.put(uuid, System.currentTimeMillis());
 
-        BossBar bossBar = Bukkit.createBossBar(
-            "§a§l⏱ Login §8| §f" + LOGIN_TIMEOUT_SECONDS + " §adetik tersisa",
-            BarColor.GREEN,
-            BarStyle.SOLID
-        );
-        bossBar.addPlayer(player);
-        bossBar.setProgress(1.0);
-        bossBars.put(uuid, bossBar);
-
+        // Keep the timeout task for background checks, but remove BossBar and ActionBar updates
         int taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
             if (!player.isOnline() || plugin.isAuthenticated(uuid)) {
                 stopAuthUI(uuid);
@@ -832,30 +743,6 @@ public class PaperListener implements Listener, PluginMessageListener {
                 stopAuthUI(uuid);
                 return;
             }
-            double progress = remaining / (double) LOGIN_TIMEOUT_SECONDS;
-
-            BossBar bar = bossBars.get(uuid);
-            if (bar != null) {
-                String timeColor;
-                BarColor barColor;
-                if (remaining <= 10) {
-                    timeColor = "§c"; barColor = BarColor.RED;
-                } else if (remaining <= 20) {
-                    timeColor = "§e"; barColor = BarColor.YELLOW;
-                } else {
-                    timeColor = "§a"; barColor = BarColor.GREEN;
-                }
-                bar.setTitle("§e§l⏱ Login §8| " + timeColor + remaining + " §edetik tersisa");
-                bar.setProgress(Math.max(0.0, Math.min(1.0, progress)));
-                bar.setColor(barColor);
-            }
-
-            boolean alternate = (elapsedSeconds % 8) >= 4;
-            String hint = alternate
-                ? "§7Belum punya akun? Gunakan §f/register§7 di chat"
-                : "§e🔑 Gunakan §fGUI §eyang muncul §eatau ketik §f/login <password>";
-            player.sendActionBar(Component.text(hint));
-
         }, 0L, 20L);
         actionBarTaskIds.put(uuid, taskId);
     }
@@ -878,10 +765,7 @@ public class PaperListener implements Listener, PluginMessageListener {
      * from a player. Must be called from the main thread.
      */
     private void removeAllLockEffects(Player player) {
-        player.removePotionEffect(PotionEffectType.INVISIBILITY);
-        player.removePotionEffect(PotionEffectType.BLINDNESS);
-        player.removePotionEffect(PotionEffectType.SLOWNESS);
-        player.removePotionEffect(PotionEffectType.JUMP_BOOST);
+        // Player must remain fully locked in the void Lobby/Limbo, so lock effects are not removed
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

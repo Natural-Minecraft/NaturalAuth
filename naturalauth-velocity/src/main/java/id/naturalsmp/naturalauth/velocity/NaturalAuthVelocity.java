@@ -60,6 +60,8 @@ public class NaturalAuthVelocity {
     private SessionManager sessionManager;
     private Toml config;
     private VelocityListener velocityListener;
+    private ReconnectionQueueManager queueManager;
+    private final Map<String, Boolean> serverOnlineStatus = new ConcurrentHashMap<>();
     private final java.net.http.HttpClient httpClient = java.net.http.HttpClient.newHttpClient();
 
     // Resource Pack Configuration
@@ -137,6 +139,7 @@ public class NaturalAuthVelocity {
         sessionManager = new SessionManager(databaseManager, sessionExpiryHours, autoLogin);
 
         server.getChannelRegistrar().register(BRIDGE_CHANNEL);
+        queueManager = new ReconnectionQueueManager(this);
         velocityListener = new VelocityListener(this);
         server.getEventManager().register(this, velocityListener);
 
@@ -312,8 +315,10 @@ public class NaturalAuthVelocity {
     public Set<UUID> getAuthenticatedPlayers() { return authenticatedPlayers; }
     public Map<UUID, Long> getJoinTimes() { return joinTimes; }
     public VelocityListener getVelocityListener() { return velocityListener; }
+    public ReconnectionQueueManager getQueueManager() { return queueManager; }
+    public boolean isServerOnline(String serverName) { return serverOnlineStatus.getOrDefault(serverName.toLowerCase(), false); }
 
-    // ───── Survival Status Checking ──────────────────────────────────────────
+    // ───── Getters ───────────────────────────────────────────────────────────
     
     public Set<UUID> getLimboPlayers() {
         return limboPlayers;
@@ -330,7 +335,7 @@ public class NaturalAuthVelocity {
     }
 
     public void updateSurvivalCheckInterval() {
-        boolean needFast = !limboPlayers.isEmpty();
+        boolean needFast = !limboPlayers.isEmpty() || (queueManager != null && queueManager.hasQueues());
         if (needFast != limboCheckSpeedActive) {
             limboCheckSpeedActive = needFast;
             if (survivalPingTask != null) {
@@ -352,56 +357,52 @@ public class NaturalAuthVelocity {
 
     public void checkSurvivalStatus() {
         String destinationName = config.getTable("servers").getString("success-target", "survival");
-        server.getServer(destinationName).ifPresentOrElse(
-                survival -> {
-                    survival.ping().handle((ping, throwable) -> {
+
+        // Always check and ping survival server
+        server.getServer(destinationName).ifPresent(survival -> {
+            survival.ping().handle((ping, throwable) -> {
+                boolean online = (throwable == null && ping != null);
+                boolean wasOnline = serverOnlineStatus.getOrDefault(destinationName.toLowerCase(), false);
+                serverOnlineStatus.put(destinationName.toLowerCase(), online);
+                survivalOnline = online;
+                if (online != wasOnline) {
+                    if (online) {
+                        logger.info("Server Survival (" + destinationName + ") is now ONLINE.");
+                        if (queueManager != null) {
+                            queueManager.startProcessingIfOnline(destinationName);
+                        }
+                    } else {
+                        logger.warn("Server Survival (" + destinationName + ") is now OFFLINE.");
+                    }
+                }
+                return null;
+            });
+        });
+
+        // Ping other queued servers if any
+        if (queueManager != null && queueManager.hasQueues()) {
+            for (String serverName : queueManager.getQueuedServers()) {
+                if (serverName.equalsIgnoreCase(destinationName)) continue;
+                if (queueManager.getTotal(serverName) == 0) continue;
+
+                server.getServer(serverName).ifPresent(regServer -> {
+                    regServer.ping().handle((ping, throwable) -> {
                         boolean online = (throwable == null && ping != null);
-                        if (online != survivalOnline) {
-                            survivalOnline = online;
+                        boolean wasOnline = serverOnlineStatus.getOrDefault(serverName.toLowerCase(), false);
+                        serverOnlineStatus.put(serverName.toLowerCase(), online);
+                        if (online != wasOnline) {
                             if (online) {
-                                logger.info("Server Survival (" + destinationName + ") is now ONLINE.");
-                                redirectAuthenticatedPlayers();
+                                logger.info("Server " + serverName + " is now ONLINE.");
+                                queueManager.startProcessingIfOnline(serverName);
                             } else {
-                                logger.warn("Server Survival (" + destinationName + ") is now OFFLINE. Connection attempts are paused (status pings scheduled dynamically).");
+                                logger.warn("Server " + serverName + " is now OFFLINE.");
                             }
                         }
                         return null;
                     });
-                },
-                () -> {
-                    survivalOnline = false;
-                }
-        );
-    }
-
-    private void redirectAuthenticatedPlayers() {
-        String lobbyName = config.getTable("servers").getString("lobby", "lobby");
-        String destinationName = config.getTable("servers").getString("success-target", "survival");
-        
-        server.getServer(destinationName).ifPresent(survival -> {
-            for (Player player : server.getAllPlayers()) {
-                if (isAuthenticated(player.getUniqueId())) {
-                    player.getCurrentServer().ifPresent(current -> {
-                        if (current.getServerInfo().getName().equalsIgnoreCase(lobbyName)) {
-                            // Tell Paper companion plugin that reconnect warp is active (plays aesthetic title + sounds)
-                            if (velocityListener != null) {
-                                velocityListener.sendReconnectReadyToPaper(player);
-                            }
-                            
-                            // Remove from limbo
-                            unregisterLimboPlayer(player.getUniqueId());
-                            
-                            // Delay redirection by 1.2s to let visual title play beautifully
-                            server.getScheduler().buildTask(this, () -> {
-                                if (player.isActive()) {
-                                    player.createConnectionRequest(survival).fireAndForget();
-                                }
-                            }).delay(1200, TimeUnit.MILLISECONDS).schedule();
-                        }
-                    });
-                }
+                });
             }
-        });
+        }
     }
 
     // ───── Rules Config Helpers ──────────────────────────────────────────────

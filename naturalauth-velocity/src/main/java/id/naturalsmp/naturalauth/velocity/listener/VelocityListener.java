@@ -260,7 +260,8 @@ public class VelocityListener {
         UUID uuid = player.getUniqueId();
         if (plugin.isAuthenticated(uuid)) {
             String lobbyName = plugin.getConfig().getTable("servers").getString("lobby", "lobby");
-            if (event.getServer().getServerInfo().getName().equalsIgnoreCase(lobbyName)) {
+            String kickedFrom = event.getServer().getServerInfo().getName();
+            if (kickedFrom.equalsIgnoreCase(lobbyName)) {
                 // Lobby/Limbo is dead/offline! Disconnect the player to prevent infinite redirect loop
                 player.disconnect(LegacyComponentSerializer.legacySection().deserialize("§cServer Lobby/Limbo tidak tersedia atau koneksi terputus. Silakan hubungi admin."));
                 return;
@@ -270,6 +271,11 @@ public class VelocityListener {
                 // Prevent disconnect by redirecting silently to Lobby (Limbo Waiting Room)
                 event.setResult(KickedFromServerEvent.RedirectPlayer.create(lobby));
                 player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§c§l[!] §r§cKoneksi ke server utama terputus. Mengalihkan Anda ke ruang tunggu (Limbo)..."));
+                
+                // Add player to the reconnection queue for the server they were kicked from!
+                if (plugin.getQueueManager() != null) {
+                    plugin.getQueueManager().addPlayer(player, kickedFrom);
+                }
             }
         }
     }
@@ -279,17 +285,27 @@ public class VelocityListener {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
         String lobbyName = plugin.getConfig().getTable("servers").getString("lobby", "lobby");
-        if (event.getServer().getServerInfo().getName().equalsIgnoreCase(lobbyName)) {
+        String connectedServer = event.getServer().getServerInfo().getName();
+        if (connectedServer.equalsIgnoreCase(lobbyName)) {
             if (plugin.isAuthenticated(uuid)) {
-                if (!plugin.isSurvivalOnline()) {
-                    // Player connected to lobby already authenticated and survival is offline -> enter Limbo mode!
+                String targetServer = null;
+                if (plugin.getQueueManager() != null) {
+                    targetServer = plugin.getQueueManager().getTargetServer(uuid);
+                }
+                if (targetServer == null) {
+                    targetServer = plugin.getConfig().getTable("servers").getString("success-target", "survival");
+                }
+                if (!plugin.isServerOnline(targetServer)) {
                     plugin.registerLimboPlayer(uuid);
                     sendLimboStatusToPaper(player, true);
                 }
             }
         } else {
-            // Player connected to a server that is not Lobby -> remove from Limbo if they were in it
+            // Player connected to a server that is not Lobby -> remove from Limbo and Queue if present
             plugin.unregisterLimboPlayer(uuid);
+            if (plugin.getQueueManager() != null) {
+                plugin.getQueueManager().removePlayer(uuid);
+            }
         }
     }
 
@@ -316,8 +332,11 @@ public class VelocityListener {
         loginAttempts.remove(uuid);
         loginCooldowns.remove(uuid);
         
-        // 5. Unregister from Virtual Limbo if present
+        // 5. Unregister from Virtual Limbo and Reconnection Queue if present
         plugin.unregisterLimboPlayer(uuid);
+        if (plugin.getQueueManager() != null) {
+            plugin.getQueueManager().removePlayer(uuid);
+        }
     }
 
     @Subscribe
@@ -756,9 +775,19 @@ public class VelocityListener {
         // Tell Paper auth was successful (closes GUI if any)
         sendAuthStatusToPaper(player, true, "Success");
 
+        String destinationName = plugin.getConfig().getTable("servers").getString("success-target", "survival");
+        if (!plugin.isServerOnline(destinationName)) {
+            plugin.getLogger().info("Target server " + destinationName + " is offline. Adding player " + player.getUsername() + " to reconnection queue.");
+            if (plugin.getQueueManager() != null) {
+                plugin.getQueueManager().addPlayer(player, destinationName);
+            }
+            plugin.registerLimboPlayer(uuid);
+            sendLimboStatusToPaper(player, true);
+            return;
+        }
+
         // Redirect to success-target server after a small delay so the PACKET_AUTH_STATUS
         // plugin message is fully delivered & processed by Paper before the player transfers.
-        String destinationName = plugin.getConfig().getTable("servers").getString("success-target", "survival");
         plugin.getServer().getServer(destinationName).ifPresentOrElse(
                 targetServer -> {
                     plugin.getLogger().info("Scheduling redirect for " + player.getUsername() + " to " + destinationName + " in 500ms.");
