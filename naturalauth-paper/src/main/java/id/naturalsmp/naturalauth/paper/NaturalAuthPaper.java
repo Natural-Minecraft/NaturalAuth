@@ -88,6 +88,14 @@ public class NaturalAuthPaper extends JavaPlugin {
         // The lobby will remain purely empty (void) with only a single barrier block for player spawning.
         getLogger().info("Virtual Void Lobby mode active: physical platform loading has been disabled.");
 
+        // Clear all loaded chunks in the lobby world on startup to ensure no legacy bedrock/blocks remain
+        if (lobbyMode && spawnLocation != null && spawnLocation.getWorld() != null) {
+            getLogger().info("Clearing already-loaded chunks in lobby world to ensure 100% void...");
+            for (org.bukkit.Chunk chunk : spawnLocation.getWorld().getLoadedChunks()) {
+                listener.clearChunkToVoid(chunk);
+            }
+        }
+
         org.bukkit.Bukkit.getConsoleSender().sendMessage(
                 org.bukkit.ChatColor.translateAlternateColorCodes('&',
                     "\n&a================================================================================\n" +

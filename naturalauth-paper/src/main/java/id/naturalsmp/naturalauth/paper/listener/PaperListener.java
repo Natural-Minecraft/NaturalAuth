@@ -18,6 +18,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -312,9 +313,22 @@ public class PaperListener implements Listener, PluginMessageListener {
         Location spawnLoc = plugin.getSpawnLocation();
         Location barrierLoc = spawnLoc.clone().subtract(0, 1, 0);
         
-        // Ensure void around player's body and place barrier block
-        spawnLoc.getBlock().setType(Material.AIR);
-        spawnLoc.clone().add(0, 1, 0).getBlock().setType(Material.AIR);
+        // Ensure void around player spawn location by clearing blocks in a 15-block radius
+        org.bukkit.World world = spawnLoc.getWorld();
+        if (world != null) {
+            int sx = spawnLoc.getBlockX();
+            int sy = spawnLoc.getBlockY();
+            int sz = spawnLoc.getBlockZ();
+            for (int x = -15; x <= 15; x++) {
+                for (int z = -15; z <= 15; z++) {
+                    for (int y = -10; y <= 15; y++) {
+                        world.getBlockAt(sx + x, sy + y, sz + z).setType(Material.AIR);
+                    }
+                }
+            }
+        }
+        
+        // Place the single barrier block under player's feet
         barrierLoc.getBlock().setType(Material.BARRIER);
 
         // Teleport to lobby spawn location (directly on top of the barrier block)
@@ -369,6 +383,49 @@ public class PaperListener implements Listener, PluginMessageListener {
         stopLimboUI(uuid);
         serverSelectorViewers.remove(uuid);
         whoisAdmins.remove(uuid);
+    }
+
+    @EventHandler
+    public void onChunkLoad(ChunkLoadEvent event) {
+        if (!plugin.isLobbyMode()) return;
+        org.bukkit.World world = event.getWorld();
+        Location spawnLoc = plugin.getSpawnLocation();
+        if (spawnLoc.getWorld() == null || !world.getName().equalsIgnoreCase(spawnLoc.getWorld().getName())) {
+            return;
+        }
+        clearChunkToVoid(event.getChunk());
+    }
+
+    public void clearChunkToVoid(org.bukkit.Chunk chunk) {
+        org.bukkit.World world = chunk.getWorld();
+        int minHeight = world.getMinHeight();
+        int maxHeight = world.getMaxHeight();
+        int cx = chunk.getX() << 4;
+        int cz = chunk.getZ() << 4;
+
+        Location spawnLoc = plugin.getSpawnLocation();
+        int barrierX = spawnLoc.getBlockX();
+        int barrierY = spawnLoc.getBlockY() - 1;
+        int barrierZ = spawnLoc.getBlockZ();
+
+        for (int x = 0; x < 16; x++) {
+            for (int z = 0; z < 16; z++) {
+                int blockX = cx + x;
+                int blockZ = cz + z;
+                for (int y = minHeight; y < maxHeight; y++) {
+                    org.bukkit.block.Block block = chunk.getBlock(x, y, z);
+                    if (blockX == barrierX && y == barrierY && blockZ == barrierZ) {
+                        if (block.getType() != Material.BARRIER) {
+                            block.setType(Material.BARRIER, false);
+                        }
+                    } else {
+                        if (block.getType() != Material.AIR) {
+                            block.setType(Material.AIR, false);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
