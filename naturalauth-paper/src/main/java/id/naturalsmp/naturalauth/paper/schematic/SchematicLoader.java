@@ -41,7 +41,7 @@ public class SchematicLoader {
         }
     }
 
-    private static void generateFallbackPlatform(Location loc) {
+    public static void generateFallbackPlatform(Location loc) {
         World world = loc.getWorld();
         if (world == null) return;
 

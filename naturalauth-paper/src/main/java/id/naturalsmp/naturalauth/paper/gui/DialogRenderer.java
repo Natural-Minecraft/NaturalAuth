@@ -172,11 +172,11 @@ public class DialogRenderer {
                     String password = response.getText("password");
                     String confirm = response.getText("confirm");
 
-                    if (password == null || password.trim().isEmpty() || password.length() < 4) {
+                    if (password == null || password.trim().isEmpty() || password.length() < 6) {
                         audience.closeDialog();
                         openErrorDialog(plugin, player, 
                                 isEnglish ? "Registration Failed" : "Registrasi Gagal", 
-                                isEnglish ? "Password must be at least 4 characters!" : "Password minimal 4 karakter!", 
+                                isEnglish ? "Password must be at least 6 characters!" : "Password minimal 6 karakter!", 
                                 language, 
                                 () -> {
                                     openRegisterDialog(plugin, player, prompt, language);

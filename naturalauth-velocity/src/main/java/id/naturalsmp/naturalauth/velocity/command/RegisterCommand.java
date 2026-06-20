@@ -52,17 +52,17 @@ public class RegisterCommand implements SimpleCommand {
         String confirmPassword = args[1];
 
         // ── Password strength validation ───────────────────────────────────
-        if (password.length() < 6) {
-            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cPassword minimal harus §e6 karakter§c! (sekarang: " + password.length() + " karakter)"));
-            return;
-        }
-        if (password.equalsIgnoreCase(player.getUsername())) {
-            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cPassword tidak boleh sama dengan username Anda!"));
-            return;
-        }
-        if (COMMON_PASSWORDS.contains(password.toLowerCase())) {
-            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cPassword terlalu lemah! Hindari password umum seperti '123456' atau 'password'."));
-            return;
+        if (plugin.getVelocityListener() != null) {
+            String strengthError = plugin.getVelocityListener().validatePasswordStrength(player.getUsername(), password, false);
+            if (strengthError != null) {
+                player.sendMessage(LegacyComponentSerializer.legacySection().deserialize(strengthError));
+                return;
+            }
+        } else {
+            if (password.length() < 6) {
+                player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cPassword minimal harus §e6 karakter§c!"));
+                return;
+            }
         }
         if (!password.equals(confirmPassword)) {
             player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cKonfirmasi password tidak cocok! Pastikan keduanya sama."));

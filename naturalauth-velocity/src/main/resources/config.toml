@@ -25,6 +25,8 @@ auto-login = true
 auto-detect-premium = true
 # Bypass login/registration for Bedrock/Geyser/Floodgate players
 bypass-bedrock-passwords = true
+# Allow auto-login for cracked accounts (High security risk in shared IP networks/schools!)
+auto-login-cracked = false
 
 [rules]
 # Set to true to show server rules screen before player can enter the main server

@@ -309,10 +309,8 @@ public class PaperListener implements Listener, PluginMessageListener {
         // Force SURVIVAL gamemode in lobby
         player.setGameMode(GameMode.SURVIVAL);
 
-        // Virtual Void Lobby: Place 1 BARRIER block precisely under player's feet
+        // Virtual Void Lobby: Generate a safe fallback bedrock platform
         Location spawnLoc = plugin.getSpawnLocation();
-        Location barrierLoc = spawnLoc.clone().subtract(0, 1, 0);
-        
         // Ensure void around player spawn location by clearing blocks in a 15-block radius
         org.bukkit.World world = spawnLoc.getWorld();
         if (world != null) {
@@ -328,8 +326,8 @@ public class PaperListener implements Listener, PluginMessageListener {
             }
         }
         
-        // Place the single barrier block under player's feet
-        barrierLoc.getBlock().setType(Material.BARRIER);
+        // Build safe fallback bedrock platform under player's feet
+        id.naturalsmp.naturalauth.paper.schematic.SchematicLoader.generateFallbackPlatform(spawnLoc);
 
         // Teleport to lobby spawn location (directly on top of the barrier block)
         player.teleport(spawnLoc);
@@ -569,7 +567,7 @@ public class PaperListener implements Listener, PluginMessageListener {
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
-        if (plugin.isLobbyMode() || !plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
+        if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
             Location from = event.getFrom();
             Location to   = event.getTo();
             
@@ -603,7 +601,7 @@ public class PaperListener implements Listener, PluginMessageListener {
     public void onPlayerCommand(PlayerCommandPreprocessEvent event) {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
-        if (plugin.isLobbyMode() || !plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
+        if (!plugin.isAuthenticated(uuid) || plugin.isPendingRules(uuid)) {
             String message = event.getMessage().toLowerCase().trim();
             if (message.startsWith("/naturalauth ") || message.startsWith("naturalauth ") ||
                 message.startsWith("/na ")          || message.startsWith("na ") ||

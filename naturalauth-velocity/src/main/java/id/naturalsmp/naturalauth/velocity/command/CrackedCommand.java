@@ -23,20 +23,43 @@ public class CrackedCommand implements SimpleCommand {
         }
 
         String[] args = invocation.arguments();
-        if (args.length == 0 || !args[0].equalsIgnoreCase("confirm")) {
+        if (args.length < 2 || !args[0].equalsIgnoreCase("confirm")) {
             // Send cracked warning UI
             player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e§l┌────────────────────────────────────────┐"));
             player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e§l│              [!] PERINGATAN [!]              │"));
             player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§e§l└────────────────────────────────────────┘"));
             player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§7Dengan mengaktifkan status Cracked, server tidak akan"));
             player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§7memaksa verifikasi online Mojang untuk akun Anda."));
-            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§eAnda akan diminta memasukkan password saat join kembali."));
+            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cAnda WAJIB menyetel password baru untuk masuk nanti!"));
             player.sendMessage(Component.text(""));
-            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§eKetik §a/cracked confirm §euntuk mengaktifkan."));
+            player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§eKetik §a/cracked confirm <password_baru> §euntuk mengaktifkan."));
             return;
         }
 
-        // Set player status as Cracked in DB
+        String password = args[1];
+        if (plugin.getVelocityListener() != null) {
+            String strengthError = plugin.getVelocityListener().validatePasswordStrength(player.getUsername(), password, false);
+            if (strengthError != null) {
+                player.sendMessage(LegacyComponentSerializer.legacySection().deserialize(strengthError));
+                return;
+            }
+        } else {
+            if (password == null || password.length() < 6) {
+                player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§cPassword minimal harus 6 karakter!"));
+                return;
+            }
+        }
+
+        // Hash password using BCrypt
+        int rounds = 10;
+        if (plugin.getConfig() != null && plugin.getConfig().getTable("settings") != null) {
+            Long r = plugin.getConfig().getTable("settings").getLong("bcrypt-rounds");
+            if (r != null) rounds = r.intValue();
+        }
+        String passwordHash = org.mindrot.jbcrypt.BCrypt.hashpw(password, org.mindrot.jbcrypt.BCrypt.gensalt(rounds));
+
+        // Update password and set player status as Cracked in DB
+        plugin.getDatabaseManager().updatePassword(player.getUniqueId(), passwordHash);
         plugin.getDatabaseManager().setPremium(player.getUniqueId(), false);
         plugin.logActivity(player.getUniqueId(), player.getUsername(), "PREMIUM_OFF", player.getRemoteAddress().getAddress().getHostAddress(), "Menonaktifkan mode Premium Mojang (Cracked)");
 

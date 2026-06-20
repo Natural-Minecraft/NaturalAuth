@@ -39,7 +39,9 @@ public class EmailCommand implements SimpleCommand {
         String otpCode = String.format("%06d", new java.util.Random().nextInt(1000000));
 
         // Save target email temporarily and store generated OTP
-        plugin.getDatabaseManager().setEmail(uuid, email);
+        if (plugin.getVelocityListener() != null) {
+            plugin.getVelocityListener().getPendingEmails().put(uuid, email);
+        }
         plugin.getDatabaseManager().saveOTP(uuid, email, otpCode);
 
         player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§a§lNaturalAuth §r§aMengirimkan kode verifikasi OTP ke email Anda..."));

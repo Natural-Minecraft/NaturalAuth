@@ -42,6 +42,8 @@ public class VelocityListener {
     private final Map<UUID, String> tempLanguages = new ConcurrentHashMap<>();
     // Tracks temporary captchas for unregistered players who choose premium
     private final Map<UUID, String> tempCaptchas = new ConcurrentHashMap<>();
+    // Tracks unverified emails during registration OTP process
+    private final Map<UUID, String> pendingEmails = new ConcurrentHashMap<>();
 
     // ── Brute Force Protection ───────────────────────────────────────────────
     private final Map<UUID, Integer> loginAttempts = new ConcurrentHashMap<>();
@@ -196,7 +198,18 @@ public class VelocityListener {
         }
 
         // ── Check for Auto-Login via saved session ────────────────────────────
-        if (plugin.getSessionManager().checkAutoLogin(uuid, ip)) {
+        boolean allowAutoLogin = true;
+        boolean isCracked = !player.isOnlineMode() && !FloodgateHelper.isFloodgatePlayer(uuid);
+        if (isCracked) {
+            boolean autoLoginCracked = false;
+            if (plugin.getConfig() != null && plugin.getConfig().getTable("settings") != null) {
+                Boolean alc = plugin.getConfig().getTable("settings").getBoolean("auto-login-cracked");
+                if (alc != null) autoLoginCracked = alc;
+            }
+            allowAutoLogin = autoLoginCracked;
+        }
+
+        if (allowAutoLogin && plugin.getSessionManager().checkAutoLogin(uuid, ip)) {
             plugin.logActivity(uuid, player.getUsername(), "LOGIN_SESSION", ip, "Auto-login otomatis via token sesi");
             // Check if player needs to accept rules even if session is active
             if (plugin.isRulesEnabled() && !plugin.getDatabaseManager().hasAcceptedRules(player.getUsername())) {
@@ -327,6 +340,7 @@ public class VelocityListener {
         pendingAutoLoginPlayers.remove(uuid);
         pendingAutoRulesPlayers.remove(uuid);
         tempLanguages.remove(uuid);
+        pendingEmails.remove(uuid);
         
         // 4. Remove from brute-force attempts and cooldown mappings
         loginAttempts.remove(uuid);
@@ -620,8 +634,9 @@ public class VelocityListener {
 
             if (!registered) {
                 // Registering new account
-                if (password == null || password.length() < 4) {
-                    sendAuthStatusToPaper(player, false, isEnglish ? "Password must be at least 4 characters!" : "Password minimal 4 karakter!");
+                String strengthError = validatePasswordStrength(player.getUsername(), password, isEnglish);
+                if (strengthError != null) {
+                    sendAuthStatusToPaper(player, false, strengthError);
                     return;
                 }
                 
@@ -888,7 +903,7 @@ public class VelocityListener {
         UUID uuid = player.getUniqueId();
         if (email != null && !email.trim().isEmpty() && email.contains("@")) {
             String otpCode = String.format("%06d", new java.util.Random().nextInt(1000000));
-            plugin.getDatabaseManager().setEmail(uuid, email);
+            pendingEmails.put(uuid, email.trim());
             plugin.getDatabaseManager().saveOTP(uuid, email, otpCode);
             plugin.logActivity(uuid, player.getUsername(), "OTP_REQUESTED", player.getRemoteAddress().getAddress().getHostAddress(), "Mengajukan penautan email ke: " + email);
             
@@ -939,7 +954,10 @@ public class VelocityListener {
 
     private void handleOtpSubmission(Player player, String typedOtp) {
         UUID uuid = player.getUniqueId();
-        String email = plugin.getDatabaseManager().getEmail(uuid);
+        String email = pendingEmails.get(uuid);
+        if (email == null) {
+            email = plugin.getDatabaseManager().getEmail(uuid);
+        }
         if (email == null) {
             sendAuthStatusToPaper(player, false, "Tidak ada penautan email yang aktif!");
             return;
@@ -952,6 +970,8 @@ public class VelocityListener {
         }
 
         if (activeOtp.equals(typedOtp.trim())) {
+            plugin.getDatabaseManager().setEmail(uuid, email);
+            pendingEmails.remove(uuid);
             plugin.getDatabaseManager().deleteOTP(uuid);
             plugin.logActivity(uuid, player.getUsername(), "OTP_VERIFIED", player.getRemoteAddress().getAddress().getHostAddress(), "Email berhasil ditautkan: " + email);
             player.sendMessage(LegacyComponentSerializer.legacySection().deserialize("§a§lNaturalAuth §r§aVerifikasi OTP berhasil! Email Anda telah ditautkan."));
@@ -970,5 +990,47 @@ public class VelocityListener {
             sb.append(chars.charAt(rand.nextInt(chars.length())));
         }
         return sb.toString();
+    }
+
+    public String getLanguage(UUID uuid) {
+        String lang = tempLanguages.get(uuid);
+        if (lang == null) {
+            lang = plugin.getDatabaseManager().getLanguage(uuid);
+            if (lang != null) {
+                tempLanguages.put(uuid, lang);
+            } else {
+                lang = "indonesia";
+            }
+        }
+        return lang;
+    }
+
+    private static final java.util.List<String> COMMON_PASSWORDS = java.util.Arrays.asList(
+        "123456", "1234567", "12345678", "123456789", "password", "qwerty",
+        "minecraft", "iloveyou", "letmein", "abc123", "admin", "000000",
+        "111111", "123123", "dragon", "master", "monkey", "shadow"
+    );
+
+    public String validatePasswordStrength(String username, String password, boolean isEnglish) {
+        if (password == null || password.length() < 6) {
+            return isEnglish 
+                ? "§cPassword must be at least 6 characters!" 
+                : "§cPassword minimal harus 6 karakter!";
+        }
+        if (password.equalsIgnoreCase(username)) {
+            return isEnglish 
+                ? "§cPassword cannot be the same as your username!" 
+                : "§cPassword tidak boleh sama dengan username Anda!";
+        }
+        if (COMMON_PASSWORDS.contains(password.toLowerCase())) {
+            return isEnglish 
+                ? "§cPassword is too weak! Avoid common passwords." 
+                : "§cPassword terlalu lemah! Hindari password umum.";
+        }
+        return null;
+    }
+
+    public Map<UUID, String> getPendingEmails() {
+        return pendingEmails;
     }
 }

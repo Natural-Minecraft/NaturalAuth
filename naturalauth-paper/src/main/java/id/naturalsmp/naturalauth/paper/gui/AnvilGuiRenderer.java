@@ -93,8 +93,8 @@ public class AnvilGuiRenderer {
                     }
 
                     String password = stateSnapshot.getText();
-                    if (password == null || password.trim().isEmpty() || password.equalsIgnoreCase(parsedPrompt) || password.length() < 4) {
-                        player.sendMessage("§cPassword minimal 4 karakter!");
+                    if (password == null || password.trim().isEmpty() || password.equalsIgnoreCase(parsedPrompt) || password.length() < 6) {
+                        player.sendMessage("§cPassword minimal 6 karakter!");
                         return Collections.singletonList(AnvilGUI.ResponseAction.replaceInputText(parsedPrompt));
                     }
 
